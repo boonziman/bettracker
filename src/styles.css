@@ -48,6 +48,7 @@
 
   --shadow-border: 0 0 0 1px rgb(236 234 228 / 0.08);
   --shadow-border-hover: 0 0 0 1px rgb(236 234 228 / 0.14);
+  --shadow-live: 0 0 0 1px rgb(125 168 127 / 0.32);
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -139,12 +140,44 @@
   }
 }
 
+@keyframes score-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.16);
+    color: var(--color-win);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes play-fade {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .live-dot {
   animation: live-pulse 1.8s var(--ease-out) infinite;
 }
 
+.score-pop {
+  animation: score-pop 280ms var(--ease-out);
+}
+
+.play-fade {
+  animation: play-fade 320ms var(--ease-out);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .live-dot {
+  .live-dot,
+  .score-pop,
+  .play-fade {
     animation: none;
   }
 }

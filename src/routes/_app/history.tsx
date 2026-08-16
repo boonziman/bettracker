@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { TicketCard } from "@/components/ticket-card";
+import { TicketRow } from "@/components/ticket-desk";
 import { evaluateTicket } from "@/lib/bets/evaluate";
 import { useBook } from "@/lib/bets/store";
 import { useSlate, useTicketDetails } from "@/lib/espn/hooks";
@@ -16,7 +16,7 @@ function HistoryPage() {
   const { data: games = [] } = useSlate(enabled);
   const details = useTicketDetails(
     games,
-    tickets.flatMap((t) => t.legs.map((l) => l.eventId)),
+    tickets.flatMap((t) => t.legs.map((l) => ({ eventId: l.eventId, leagueId: l.leagueId }))),
   );
   const gameMap = new Map<string, Game>(games.map((g) => [g.id, g]));
 
@@ -48,7 +48,7 @@ function HistoryPage() {
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
           {graded.map(({ t }) => (
-            <TicketCard key={t.id} ticket={t} games={gameMap} details={details} />
+            <TicketRow key={t.id} ticket={t} games={gameMap} details={details} />
           ))}
         </div>
       )}

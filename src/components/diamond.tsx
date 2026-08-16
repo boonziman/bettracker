@@ -25,8 +25,8 @@ function Base({ className, on }: { className?: string; on?: boolean }) {
   return (
     <span
       className={cn(
-        "absolute size-3 rotate-45 border-2 border-faint",
-        on && "border-threat bg-threat",
+        "absolute size-3 rotate-45 border-2 border-faint transition-[background-color,box-shadow,border-color] duration-200",
+        on && "border-threat bg-threat shadow-[0_0_10px_rgb(196_165_116_/_0.75)]",
         className,
       )}
     />
@@ -52,10 +52,7 @@ export function CountDots({
       {Array.from({ length: total }, (_, i) => (
         <span
           key={i}
-          className={cn(
-            "size-1.5 rounded-pill border border-faint",
-            i < filled && fill,
-          )}
+          className={cn("size-1.5 rounded-pill border border-faint transition-colors duration-150", i < filled && fill)}
         />
       ))}
     </div>

@@ -53,4 +53,8 @@ export type LegEval = {
   current?: number;
   line?: number;
   progress?: number;
+  /** Compact live value for the tracking rail: "+3", "0–0", "2 / 1.5" */
+  readout?: string;
+  needed?: number;
+  extra?: string;
 };

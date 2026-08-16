@@ -2,8 +2,8 @@ import { LEAGUES, leagueById, scoreboardUrl, summaryUrl, type LeagueDef } from "
 import { parseScoreboard, parseSummary } from "./parse";
 import type { Game, GameDetail } from "./types";
 
-const SCORE_TTL = 4000;
-const SUM_TTL = 3000;
+const SCORE_TTL = 3000;
+const SUM_TTL = 2500;
 
 type CacheEntry<T> = { at: number; data: T; inflight?: Promise<T> };
 const scoreCache = new Map<string, CacheEntry<Game[]>>();

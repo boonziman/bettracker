@@ -33,6 +33,7 @@ function WatchPage() {
                 stake: 10,
                 odds: -110,
                 legs: [],
+                focusEventId: data.id,
               })
             }
             className="inline-flex h-11 items-center text-sm text-muted hover:text-fg"

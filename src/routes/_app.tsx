@@ -16,8 +16,10 @@ function AppLayout() {
   const tickets = useBook((s) => s.tickets);
   const hydrated = useBookHydrated();
   const { data: games = [] } = useSlate(enabled);
-  const eventIds = tickets.flatMap((t) => t.legs.map((l) => l.eventId));
-  const details = useTicketDetails(games, eventIds);
+  const details = useTicketDetails(
+    games,
+    tickets.flatMap((t) => t.legs.map((l) => ({ eventId: l.eventId, leagueId: l.leagueId }))),
+  );
   const gameMap = new Map<string, Game>(games.map((g) => [g.id, g]));
 
   useCloudSync();

@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { TicketCard } from "@/components/ticket-card";
+import { Outlet, createFileRoute, useChildMatches } from "@tanstack/react-router";
+import { TicketDesk } from "@/components/ticket-desk";
 import { Button } from "@/components/ui/button";
 import { evaluateTicket } from "@/lib/bets/evaluate";
 import { useBook } from "@/lib/bets/store";
@@ -8,8 +8,14 @@ import type { Game } from "@/lib/espn/types";
 import { formatMoney } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/book")({
-  component: BookPage,
+  component: BookLayout,
 });
+
+function BookLayout() {
+  const child = useChildMatches();
+  if (child.length) return <Outlet />;
+  return <BookPage />;
+}
 
 function BookPage() {
   const tickets = useBook((s) => s.tickets);
@@ -18,7 +24,7 @@ function BookPage() {
   const { data: games = [] } = useSlate(enabled);
   const details = useTicketDetails(
     games,
-    tickets.flatMap((t) => t.legs.map((l) => l.eventId)),
+    tickets.flatMap((t) => t.legs.map((l) => ({ eventId: l.eventId, leagueId: l.leagueId }))),
   );
   const gameMap = new Map<string, Game>(games.map((g) => [g.id, g]));
 
@@ -55,9 +61,9 @@ function BookPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="space-y-10">
           {open.map((t) => (
-            <TicketCard key={t.id} ticket={t} games={gameMap} details={details} />
+            <TicketDesk key={t.id} ticket={t} games={gameMap} details={details} size="card" />
           ))}
         </div>
       )}
@@ -65,9 +71,9 @@ function BookPage() {
       {closed.length > 0 ? (
         <section className="mt-10">
           <h2 className="mb-3 text-2xs font-medium uppercase tracking-wide text-subtle">Recently settled</h2>
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="space-y-10">
             {closed.slice(0, 6).map((t) => (
-              <TicketCard key={t.id} ticket={t} games={gameMap} details={details} />
+              <TicketDesk key={t.id} ticket={t} games={gameMap} details={details} size="card" />
             ))}
           </div>
         </section>

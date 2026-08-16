@@ -29,15 +29,21 @@ export function Shell({
   const openDraft = useBook((s) => s.openDraft);
   const { user, isPending } = useCurrentUserState();
 
-  const open = tickets.filter((t) => !t.settled);
+  const isActive = (to: string) => {
+    if (to === "/") return path === "/";
+    return path === to || path.startsWith(`${to}/`);
+  };
+
   let risked = 0;
   let toWin = 0;
   let secured = 0;
   let liveHits = 0;
   let liveLegs = 0;
+  let openCount = 0;
   for (const t of tickets) {
     const ev = evaluateTicket(t, games, details);
     if (ev.status === "open") {
+      openCount += 1;
       risked += t.stake;
       toWin += t.toWin;
       liveHits += ev.hits;
@@ -63,7 +69,7 @@ export function Shell({
                 to={n.to}
                 className={cn(
                   "rounded-md px-3 py-2 text-sm",
-                  path === n.to ? "bg-elevated text-fg" : "text-muted hover:text-fg",
+                  isActive(n.to) ? "bg-elevated text-fg" : "text-muted hover:text-fg",
                 )}
               >
                 {n.label}
@@ -105,10 +111,10 @@ export function Shell({
             ) : null}
           </div>
         </div>
-        {open.length > 0 ? (
+        {openCount > 0 ? (
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pb-2 text-2xs text-subtle">
             <span>
-              {open.length} open · {liveHits}/{liveLegs || 0} legs covering
+              {openCount} open · {liveHits}/{liveLegs || 0} legs covering
             </span>
             <span className="tabular">
               To win {formatMoney(toWin)}
@@ -124,7 +130,7 @@ export function Shell({
         <div className="grid grid-cols-3">
           {NAV.map((n) => {
             const Icon = n.icon;
-            const active = path === n.to;
+            const active = isActive(n.to);
             return (
               <Link
                 key={n.to}

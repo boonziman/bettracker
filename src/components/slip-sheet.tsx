@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,10 +8,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { payout } from "@/lib/bets/odds";
 import { useBook } from "@/lib/bets/store";
 import type { BetKind, BetLeg } from "@/lib/bets/types";
-import { LEAGUES, leagueById, propCatalog } from "@/lib/espn/leagues";
+import { propCatalog } from "@/lib/espn/leagues";
 import { useGameDetail, useSlate } from "@/lib/espn/hooks";
 import type { Game } from "@/lib/espn/types";
-import { cn, formatAmerican, formatMoney, fuzzyIncludes } from "@/lib/utils";
+import { cn, formatMoney, fuzzyIncludes } from "@/lib/utils";
 import { toast } from "sonner";
 
 const KINDS: { id: BetKind; label: string }[] = [
@@ -20,10 +21,12 @@ const KINDS: { id: BetKind; label: string }[] = [
   { id: "team_total", label: "Team total" },
   { id: "prop", label: "Player prop" },
   { id: "period_winner", label: "Period" },
+  { id: "period_total", label: "Period total" },
   { id: "first_inning_draw", label: "1st inning 0-0" },
 ];
 
 export function SlipSheet() {
+  const navigate = useNavigate();
   const { draft, closeDraft, setDraft, removeDraftLeg, bookDraft, addDraftLeg } = useBook();
   const open = Boolean(draft);
   const toWin = draft ? payout(draft.stake, draft.odds) : 0;
@@ -116,7 +119,10 @@ export function SlipSheet() {
             disabled={!draft?.legs.length}
             onClick={() => {
               const id = bookDraft();
-              if (id) toast.success("Ticket is on the book");
+              if (id) {
+                toast.success("Ticket is on the book");
+                void navigate({ to: "/book/$ticketId", params: { ticketId: id } });
+              }
             }}
           >
             Book it
@@ -127,18 +133,34 @@ export function SlipSheet() {
   );
 }
 
+function periodPresets(sport?: Game["sport"]) {
+  if (sport === "baseball") return ["F5", "1"];
+  if (sport === "basketball" || sport === "football") return ["1Q", "1H", "2H"];
+  if (sport === "hockey") return ["1P", "2P", "1"];
+  if (sport === "soccer") return ["1H", "2H"];
+  return ["1H", "F5"];
+}
+
 function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
   const enabled = useBook((s) => s.enabledLeagues);
+  const focusEventId = useBook((s) => s.draft?.focusEventId);
+  const lastLegEvent = useBook((s) => s.draft?.legs.at(-1)?.eventId);
   const { data: games = [] } = useSlate(enabled);
   const [q, setQ] = useState("");
-  const [gameId, setGameId] = useState<string>("");
+  const [gameId, setGameId] = useState<string>(focusEventId || lastLegEvent || "");
   const [kind, setKind] = useState<BetKind>("moneyline");
   const [team, setTeam] = useState<"home" | "away">("away");
   const [side, setSide] = useState<"over" | "under">("over");
   const [line, setLine] = useState("8.5");
   const [period, setPeriod] = useState("F5");
   const [player, setPlayer] = useState("");
+  const [playerId, setPlayerId] = useState("");
   const [statKey, setStatKey] = useState("");
+
+  useEffect(() => {
+    const next = focusEventId || lastLegEvent;
+    if (next) setGameId(next);
+  }, [focusEventId, lastLegEvent]);
 
   const game = games.find((g) => g.id === gameId);
   const filtered = useMemo(() => {
@@ -151,6 +173,26 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
   const { data: detail } = useGameDetail(game?.leagueId, game?.id, game);
   const catalog = game ? propCatalog(game.sport) : [];
   const players = detail?.players ?? [];
+  const uniquePlayers = [...new Map(players.map((p) => [p.id + p.group, p])).values()];
+  const selectedCat = catalog.find((c) => c.key === statKey);
+  const groupNeedle = (selectedCat?.group || "").slice(0, 4).toLowerCase();
+  const shownPlayers = groupNeedle
+    ? uniquePlayers.filter((p) => p.group.toLowerCase().includes(groupNeedle))
+    : uniquePlayers;
+
+  useEffect(() => {
+    if (!game) return;
+    if (kind === "spread") {
+      const spr = team === "home" ? game.odds?.homeSpread : game.odds?.awaySpread;
+      if (spr != null) setLine(String(spr));
+    }
+    if ((kind === "total" || kind === "period_total") && game.odds?.overUnder != null) {
+      setLine(String(game.odds.overUnder));
+    }
+    if (game.sport === "baseball" && (kind === "period_winner" || kind === "period_total")) {
+      setPeriod("F5");
+    }
+  }, [game?.id, kind, team, game]);
 
   const submit = () => {
     if (!game) return;
@@ -218,6 +260,17 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
         teamAbbr: sideTeam.abbr,
         period,
       };
+    } else if (kind === "period_total") {
+      leg = {
+        kind,
+        leagueId: game.leagueId,
+        eventId: game.id,
+        eventLabel: ev,
+        selection: `${period} ${side} ${lineN}`,
+        line: lineN,
+        side,
+        period,
+      };
     } else if (kind === "prop") {
       const cat = catalog.find((c) => c.key === statKey) ?? catalog[0];
       if (!player || !cat) return;
@@ -228,6 +281,7 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
         eventLabel: ev,
         selection: `${player} ${side} ${lineN} ${cat.label}`,
         playerName: player,
+        playerId: playerId || undefined,
         statKey: cat.key,
         statLabel: cat.stat,
         line: lineN,
@@ -237,12 +291,22 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
     if (leg) {
       onAdd(leg);
       setPlayer("");
+      setPlayerId("");
     }
   };
 
   return (
     <div className="mt-6 rounded-lg bg-inset p-3">
       <p className="text-2xs font-medium uppercase tracking-wide text-subtle">Add a leg</p>
+      {game ? (
+        <div className="mt-2 flex items-center justify-between rounded-md bg-elevated px-3 py-2 text-xs">
+          <span>
+            <span className="mr-2 text-subtle">{game.leagueShort}</span>
+            {game.away.abbr} @ {game.home.abbr}
+          </span>
+          <span className="tabular text-subtle">{game.shortDetail}</span>
+        </div>
+      ) : null}
       <Input
         className="mt-2"
         placeholder="Search games"
@@ -263,6 +327,11 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
             <span>
               <span className="mr-2 text-subtle">{g.leagueShort}</span>
               {g.away.abbr} @ {g.home.abbr}
+              {g.state !== "pre" ? (
+                <span className="ml-2 tabular text-subtle">
+                  {g.away.score}–{g.home.score}
+                </span>
+              ) : null}
             </span>
             <span className="tabular text-subtle">{g.shortDetail}</span>
           </button>
@@ -294,9 +363,9 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
             <TeamPick game={game} team={team} onChange={setTeam} />
           ) : null}
 
-          {kind === "spread" || kind === "total" || kind === "team_total" || kind === "prop" ? (
+          {kind === "spread" || kind === "total" || kind === "team_total" || kind === "prop" || kind === "period_total" ? (
             <div className="mt-3 grid grid-cols-2 gap-2">
-              {(kind === "total" || kind === "team_total" || kind === "prop") && (
+              {(kind === "total" || kind === "team_total" || kind === "prop" || kind === "period_total") && (
                 <div className="flex gap-1">
                   {(["over", "under"] as const).map((s) => (
                     <button
@@ -317,8 +386,23 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
             </div>
           ) : null}
 
-          {kind === "period_winner" ? (
-            <Input className="mt-2" value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="F5 / 1H / 1Q" />
+          {kind === "period_winner" || kind === "period_total" ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {periodPresets(game.sport).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  className={cn(
+                    "h-8 rounded-md px-2 text-2xs",
+                    period === p ? "bg-accent text-accent-fg" : "bg-elevated text-muted",
+                  )}
+                >
+                  {p}
+                </button>
+              ))}
+              <Input className="h-8 w-20" value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="F5" />
+            </div>
           ) : null}
 
           {kind === "prop" ? (
@@ -336,16 +420,35 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
                 ))}
               </select>
               <Input
-                list="prop-players"
                 value={player}
-                onChange={(e) => setPlayer(e.target.value)}
+                onChange={(e) => {
+                  setPlayer(e.target.value);
+                  setPlayerId("");
+                }}
                 placeholder="Player name"
               />
-              <datalist id="prop-players">
-                {[...new Map(players.map((p) => [p.name, p])).values()].slice(0, 40).map((p) => (
-                  <option key={p.id + p.group} value={p.name} />
-                ))}
-              </datalist>
+              {shownPlayers.length > 0 ? (
+                <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
+                  {shownPlayers.slice(0, 16).map((p) => (
+                    <button
+                      key={p.id + p.group}
+                      type="button"
+                      onClick={() => {
+                        setPlayer(p.name);
+                        setPlayerId(p.id);
+                      }}
+                      className={cn(
+                        "h-8 rounded-md px-2 text-2xs",
+                        player === p.name ? "bg-accent text-accent-fg" : "bg-elevated text-muted",
+                      )}
+                    >
+                      {p.shortName}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-2xs text-subtle">Box loads once the game is live — you can still type a name.</p>
+              )}
             </div>
           ) : null}
 
@@ -384,14 +487,10 @@ function TeamPick({
             )}
           >
             {c.abbr}
+            {game.state !== "pre" ? <span className="ml-1.5 tabular text-subtle">{c.score}</span> : null}
           </button>
         );
       })}
     </div>
   );
 }
-
-void LEAGUES;
-void leagueById;
-void formatAmerican;
-void formatMoney;

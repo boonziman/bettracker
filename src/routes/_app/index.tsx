@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { GameCard, MiniGame } from "@/components/game-card";
 import { SportRail } from "@/components/sport-rail";
-import { TicketCard } from "@/components/ticket-card";
+import { TicketRow } from "@/components/ticket-desk";
 import { evaluateTicket } from "@/lib/bets/evaluate";
 import { useBook } from "@/lib/bets/store";
 import { useSlate, useTicketDetails } from "@/lib/espn/hooks";
@@ -20,7 +20,7 @@ function SlatePage() {
   const [filter, setFilter] = useState("all");
   const details = useTicketDetails(
     games,
-    tickets.flatMap((t) => t.legs.map((l) => l.eventId)),
+    tickets.flatMap((t) => t.legs.map((l) => ({ eventId: l.eventId, leagueId: l.leagueId }))),
   );
   const gameMap = new Map<string, Game>(games.map((g) => [g.id, g]));
 
@@ -76,7 +76,7 @@ function SlatePage() {
           <h2 className="mb-3 text-2xs font-medium uppercase tracking-wide text-subtle">Working tickets</h2>
           <div className="grid gap-3 lg:grid-cols-2">
             {openTickets.map((t) => (
-              <TicketCard key={t.id} ticket={t} games={gameMap} details={details} />
+              <TicketRow key={t.id} ticket={t} games={gameMap} details={details} />
             ))}
           </div>
         </section>

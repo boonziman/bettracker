@@ -1,4 +1,4 @@
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { loadGameDetailClient, loadSlateClient } from "./api";
 import type { Game, GameDetail } from "./types";
 
@@ -9,10 +9,11 @@ export function useSlate(leagueIds: string[]) {
     queryFn: () => loadSlateClient(leagueIds),
     refetchInterval: (q) => {
       const games = q.state.data;
-      if (!games?.length) return 20000;
-      return games.some((g) => g.state === "in") ? 5000 : 20000;
+      if (!games?.length) return 15000;
+      return games.some((g) => g.state === "in") ? 4000 : 20000;
     },
-    staleTime: 3000,
+    staleTime: 2000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -22,31 +23,46 @@ export function useGameDetail(leagueId?: string, eventId?: string, fallback?: Ga
     queryFn: () => loadGameDetailClient(leagueId!, eventId!, fallback),
     enabled: Boolean(leagueId && eventId),
     refetchInterval: (q) => {
-      const g = q.state.data;
-      return g?.state === "in" ? 4000 : 20000;
+      const g = q.state.data ?? fallback;
+      return g?.state === "in" ? 2500 : 20000;
     },
-    staleTime: 2000,
+    staleTime: 1200,
+    placeholderData: keepPreviousData,
   });
 }
 
-export function useTicketDetails(games: Game[], eventIds: string[]) {
-  const unique = [...new Set(eventIds)];
+export type TicketEventRef = { eventId: string; leagueId: string };
+
+export function useTicketDetails(games: Game[], events: Array<string | TicketEventRef>) {
   const byId = new Map(games.map((g) => [g.id, g]));
+  const refs: TicketEventRef[] = [];
+  const seen = new Set<string>();
+  for (const ev of events) {
+    const eventId = typeof ev === "string" ? ev : ev.eventId;
+    if (seen.has(eventId)) continue;
+    seen.add(eventId);
+    const g = byId.get(eventId);
+    const leagueId = typeof ev === "string" ? (g?.leagueId ?? "") : ev.leagueId || g?.leagueId || "";
+    refs.push({ eventId, leagueId });
+  }
+
   const queries = useQueries({
-    queries: unique.map((id) => {
-      const g = byId.get(id);
+    queries: refs.map((ref) => {
+      const g = byId.get(ref.eventId);
+      const leagueId = g?.leagueId || ref.leagueId;
       return {
-        queryKey: ["game", g?.leagueId ?? "?", id],
-        queryFn: () => loadGameDetailClient(g!.leagueId, id, g),
-        enabled: Boolean(g),
-        refetchInterval: g?.state === "in" ? 5000 : 30000,
-        staleTime: 2500,
+        queryKey: ["game", leagueId || "?", ref.eventId],
+        queryFn: () => loadGameDetailClient(leagueId, ref.eventId, g),
+        enabled: Boolean(leagueId),
+        refetchInterval: g?.state === "in" ? 2500 : g?.state === "post" ? 25000 : 8000,
+        staleTime: 1200,
+        placeholderData: keepPreviousData,
       };
     }),
   });
   const map = new Map<string, GameDetail | null>();
-  unique.forEach((id, i) => {
-    map.set(id, queries[i]?.data ?? null);
+  refs.forEach((ref, i) => {
+    map.set(ref.eventId, queries[i]?.data ?? null);
   });
   return map;
 }

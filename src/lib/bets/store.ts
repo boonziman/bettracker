@@ -14,6 +14,7 @@ export type Draft = {
   stake: number;
   odds: number;
   legs: BetLeg[];
+  focusEventId?: string;
 };
 
 type BookState = {
@@ -106,6 +107,7 @@ export const useBook = create<BookState>()(
           draft: {
             ...draft,
             label,
+            focusEventId: next.eventId,
             legs: [...draft.legs, next],
           },
         });
@@ -165,24 +167,67 @@ export function seedFromSlate(games: Game[]) {
     return;
   }
 
-  const first = pool[0]!;
-  addTicket({
-    label: `${first.away.abbr} @ ${first.home.abbr}`,
-    stake: 25,
-    odds: first.odds?.homeMl ?? -120,
-    sample: true,
-    legs: [
-      {
-        id: uid("leg"),
-        kind: "moneyline",
-        leagueId: first.leagueId,
-        eventId: first.id,
-        eventLabel: `${first.away.abbr} @ ${first.home.abbr}`,
-        selection: `${first.home.abbr} to win`,
-        teamAbbr: first.home.abbr,
-      },
-    ],
-  });
+  const first =
+    games.find((g) => g.sport === "baseball" && g.state === "in") ??
+    games.find((g) => g.sport === "baseball") ??
+    pool[0]!;
+  const ev = `${first.away.abbr} @ ${first.home.abbr}`;
+
+  if (first.sport === "baseball") {
+    addTicket({
+      label: ev,
+      stake: 25,
+      odds: first.odds?.homeMl ?? -120,
+      sample: true,
+      legs: [
+        {
+          id: uid("leg"),
+          kind: "moneyline",
+          leagueId: first.leagueId,
+          eventId: first.id,
+          eventLabel: ev,
+          selection: `${first.home.abbr} to win`,
+          teamAbbr: first.home.abbr,
+        },
+        {
+          id: uid("leg"),
+          kind: "first_inning_draw",
+          leagueId: first.leagueId,
+          eventId: first.id,
+          eventLabel: ev,
+          selection: "1st inning draw",
+        },
+        {
+          id: uid("leg"),
+          kind: "period_winner",
+          leagueId: first.leagueId,
+          eventId: first.id,
+          eventLabel: ev,
+          selection: `${first.home.abbr} Thru 1`,
+          teamAbbr: first.home.abbr,
+          period: "1",
+        },
+      ],
+    });
+  } else {
+    addTicket({
+      label: ev,
+      stake: 25,
+      odds: first.odds?.homeMl ?? -120,
+      sample: true,
+      legs: [
+        {
+          id: uid("leg"),
+          kind: "moneyline",
+          leagueId: first.leagueId,
+          eventId: first.id,
+          eventLabel: ev,
+          selection: `${first.home.abbr} to win`,
+          teamAbbr: first.home.abbr,
+        },
+      ],
+    });
+  }
 
   if (first.odds?.overUnder) {
     addTicket({
@@ -196,7 +241,7 @@ export function seedFromSlate(games: Game[]) {
           kind: "total",
           leagueId: first.leagueId,
           eventId: first.id,
-          eventLabel: `${first.away.abbr} @ ${first.home.abbr}`,
+          eventLabel: ev,
           selection: `Under ${first.odds.overUnder}`,
           line: first.odds.overUnder,
           side: "under",
@@ -205,7 +250,7 @@ export function seedFromSlate(games: Game[]) {
     });
   }
 
-  const second = pool[1];
+  const second = pool.find((g) => g.id !== first.id);
   if (second) {
     addTicket({
       label: "Two-leg sampler",
@@ -218,7 +263,7 @@ export function seedFromSlate(games: Game[]) {
           kind: "moneyline",
           leagueId: first.leagueId,
           eventId: first.id,
-          eventLabel: `${first.away.abbr} @ ${first.home.abbr}`,
+          eventLabel: ev,
           selection: `${first.away.abbr} ML`,
           teamAbbr: first.away.abbr,
         },

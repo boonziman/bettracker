@@ -105,11 +105,18 @@ function parseSituation(comp: Json, sport: LeagueDef["sport"]): Situation | unde
   const sit = asObj(comp.situation);
   if (!Object.keys(sit).length) return undefined;
   const last = asObj(sit.lastPlay);
+  const batter = asObj(sit.batter);
+  const pitcher = asObj(sit.pitcher);
+  const batterAth = asObj(batter.athlete ?? batter);
+  const pitcherAth = asObj(pitcher.athlete ?? pitcher);
   const base: Situation = {
     lastPlay: str(last.text) || undefined,
     downDistanceText: str(sit.downDistanceText) || undefined,
     down: typeof sit.down === "number" ? sit.down : undefined,
     distance: typeof sit.distance === "number" ? sit.distance : undefined,
+    possessionAbbr: str(asObj(sit.possession).abbreviation) || undefined,
+    batter: str(batterAth.shortName || batterAth.displayName) || undefined,
+    pitcher: str(pitcherAth.shortName || pitcherAth.displayName) || undefined,
   };
   if (sport === "baseball") {
     base.balls = num(sit.balls);
@@ -230,6 +237,10 @@ export function parseSummary(raw: unknown, league: LeagueDef, fallback?: Game): 
 
   const sitRaw = asObj(data.situation);
   if (Object.keys(sitRaw).length) {
+    const batter = asObj(sitRaw.batter);
+    const pitcher = asObj(sitRaw.pitcher);
+    const batterAth = asObj(batter.athlete ?? batter);
+    const pitcherAth = asObj(pitcher.athlete ?? pitcher);
     game.situation = {
       ...game.situation,
       balls: num(sitRaw.balls),
@@ -239,6 +250,10 @@ export function parseSummary(raw: unknown, league: LeagueDef, fallback?: Game): 
       onSecond: Boolean(sitRaw.onSecond),
       onThird: Boolean(sitRaw.onThird),
       lastPlay: str(asObj(sitRaw.lastPlay).text) || game.situation?.lastPlay,
+      batter: str(batterAth.shortName || batterAth.displayName) || game.situation?.batter,
+      pitcher: str(pitcherAth.shortName || pitcherAth.displayName) || game.situation?.pitcher,
+      downDistanceText: str(sitRaw.downDistanceText) || game.situation?.downDistanceText,
+      possessionAbbr: str(asObj(sitRaw.possession).abbreviation) || game.situation?.possessionAbbr,
     };
   }
 
@@ -287,11 +302,14 @@ export function derivedStat(player: PlayerLine, catalogKey: string): number | nu
     if (player.stats.PTS == null && player.stats.REB == null) return null;
     return pts + reb + ast;
   }
-  if (catalogKey === "tb") {
+  if (catalogKey === "tb" || catalogKey === "bat.TB") {
+    if (player.stats.TB != null) return parseStatNumber(player.stats.TB, "TB");
     const h = parseStatNumber(player.stats.H, "H");
-    const hr = parseStatNumber(player.stats.HR, "HR") ?? 0;
     if (h == null) return null;
-    return h + hr;
+    const doubles = parseStatNumber(player.stats["2B"], "2B") ?? 0;
+    const triples = parseStatNumber(player.stats["3B"], "3B") ?? 0;
+    const hr = parseStatNumber(player.stats.HR, "HR") ?? 0;
+    return h + doubles + 2 * triples + 2 * hr;
   }
   return null;
 }

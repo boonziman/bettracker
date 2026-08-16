@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { CountDots, Diamond } from "@/components/diamond";
+import { PulseNum } from "@/components/pulse";
 import type { Game } from "@/lib/espn/types";
 import { formatAmerican, formatClock } from "@/lib/utils";
 import { useBook } from "@/lib/bets/store";
-import { uid } from "@/lib/utils";
 import type { BetLeg } from "@/lib/bets/types";
 
 export function GameCard({ game }: { game: Game }) {
@@ -52,7 +52,12 @@ export function GameCard({ game }: { game: Game }) {
         ) : null}
 
         {live && game.sport === "football" && game.situation?.downDistanceText ? (
-          <p className="mt-3 text-xs text-muted">{game.situation.downDistanceText}</p>
+          <p className="mt-3 text-xs text-muted">
+            {game.situation.possessionAbbr ? (
+              <span className="mr-1.5 font-medium text-fg">{game.situation.possessionAbbr}</span>
+            ) : null}
+            {game.situation.downDistanceText}
+          </p>
         ) : null}
 
         {game.lastPlay && live ? (
@@ -75,12 +80,7 @@ function TeamRow({
   return (
     <div className="flex items-center gap-3 py-0.5">
       {team.logo ? (
-        <img
-          src={team.logo}
-          alt=""
-          className="size-6 object-contain"
-          crossOrigin="anonymous"
-        />
+        <img src={team.logo} alt="" className="size-6 object-contain" crossOrigin="anonymous" />
       ) : (
         <span className="grid size-6 place-items-center rounded-sm bg-elevated text-2xs text-muted">
           {team.abbr.slice(0, 2)}
@@ -89,7 +89,7 @@ function TeamRow({
       <span className="min-w-0 flex-1 truncate text-sm font-medium">{team.shortName}</span>
       {team.record ? <span className="text-2xs text-subtle">{team.record}</span> : null}
       <span className={`w-8 text-right text-xl font-medium tabular ${emphasize ? "text-fg" : "text-subtle"}`}>
-        {emphasize ? team.score : "–"}
+        {emphasize ? <PulseNum value={team.score} /> : "–"}
       </span>
     </div>
   );
@@ -98,15 +98,14 @@ function TeamRow({
 function OddsRow({ game }: { game: Game }) {
   const { openDraft, addDraftLeg, draft } = useBook();
   const add = (leg: Omit<BetLeg, "id">) => {
-    if (!draft) openDraft({ label: "", stake: 10, odds: leg.odds ?? -110, legs: [] });
+    if (!draft) openDraft({ label: `${game.away.abbr} @ ${game.home.abbr}`, stake: 10, odds: leg.odds ?? -110, legs: [], focusEventId: game.id });
     addDraftLeg(leg);
   };
   const ev = `${game.away.abbr} @ ${game.home.abbr}`;
-  const chips: { label: string; odds?: number; onClick: () => void }[] = [];
+  const chips: { label: string; onClick: () => void }[] = [];
   if (game.odds?.awayMl != null) {
     chips.push({
       label: `${game.away.abbr} ${formatAmerican(game.odds.awayMl)}`,
-      odds: game.odds.awayMl,
       onClick: () =>
         add({
           kind: "moneyline",
@@ -122,7 +121,6 @@ function OddsRow({ game }: { game: Game }) {
   if (game.odds?.homeMl != null) {
     chips.push({
       label: `${game.home.abbr} ${formatAmerican(game.odds.homeMl)}`,
-      odds: game.odds.homeMl,
       onClick: () =>
         add({
           kind: "moneyline",
@@ -135,10 +133,41 @@ function OddsRow({ game }: { game: Game }) {
         }),
     });
   }
+  if (game.odds?.awaySpread != null) {
+    chips.push({
+      label: `${game.away.abbr} ${game.odds.awaySpread > 0 ? "+" : ""}${game.odds.awaySpread}`,
+      onClick: () =>
+        add({
+          kind: "spread",
+          leagueId: game.leagueId,
+          eventId: game.id,
+          eventLabel: ev,
+          selection: `${game.away.abbr} ${game.odds!.awaySpread! > 0 ? "+" : ""}${game.odds!.awaySpread}`,
+          teamAbbr: game.away.abbr,
+          line: game.odds?.awaySpread,
+          odds: game.odds?.awaySpreadOdds,
+        }),
+    });
+  }
+  if (game.odds?.homeSpread != null) {
+    chips.push({
+      label: `${game.home.abbr} ${game.odds.homeSpread > 0 ? "+" : ""}${game.odds.homeSpread}`,
+      onClick: () =>
+        add({
+          kind: "spread",
+          leagueId: game.leagueId,
+          eventId: game.id,
+          eventLabel: ev,
+          selection: `${game.home.abbr} ${game.odds!.homeSpread! > 0 ? "+" : ""}${game.odds!.homeSpread}`,
+          teamAbbr: game.home.abbr,
+          line: game.odds?.homeSpread,
+          odds: game.odds?.homeSpreadOdds,
+        }),
+    });
+  }
   if (game.odds?.overUnder != null) {
     chips.push({
       label: `O ${game.odds.overUnder}`,
-      odds: game.odds.overOdds,
       onClick: () =>
         add({
           kind: "total",
@@ -153,7 +182,6 @@ function OddsRow({ game }: { game: Game }) {
     });
     chips.push({
       label: `U ${game.odds.overUnder}`,
-      odds: game.odds.underOdds,
       onClick: () =>
         add({
           kind: "total",
@@ -210,5 +238,3 @@ export function MiniGame({ game }: { game: Game }) {
     </Link>
   );
 }
-
-void uid;

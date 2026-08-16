@@ -6,46 +6,113 @@ import type { BetLeg, EvalStatus, LegEval, Ticket, TicketStatus } from "./types"
 function teamOf(game: Game, abbr?: string) {
   if (!abbr) return null;
   const a = abbr.toUpperCase();
-  if (game.home.abbr.toUpperCase() === a) return { me: game.home, opp: game.away };
-  if (game.away.abbr.toUpperCase() === a) return { me: game.away, opp: game.home };
-  if (game.home.shortName.toUpperCase() === a || game.home.name.toUpperCase().includes(a)) {
+  const match = (name: string, short: string, ab: string) =>
+    ab.toUpperCase() === a ||
+    short.toUpperCase() === a ||
+    name.toUpperCase() === a ||
+    name.toUpperCase().includes(a);
+  if (match(game.home.name, game.home.shortName, game.home.abbr)) {
     return { me: game.home, opp: game.away };
   }
-  if (game.away.shortName.toUpperCase() === a || game.away.name.toUpperCase().includes(a)) {
+  if (match(game.away.name, game.away.shortName, game.away.abbr)) {
     return { me: game.away, opp: game.home };
   }
   return null;
-}
-
-function periodSlice(game: Game, period: string | undefined): { me?: number; opp?: number; done: boolean } | null {
-  if (!period) return null;
-  const p = period.toUpperCase();
-  const take = (n: number) => n;
-  if (p === "F5" || p === "5INN" || p === "1ST 5") {
-    return {
-      me: undefined,
-      opp: undefined,
-      done: Boolean(game.completed || (game.period ?? 0) > 5),
-    };
-  }
-  return { done: false };
 }
 
 function sumLines(lines: number[], n: number) {
   return lines.slice(0, n).reduce((a, b) => a + (Number(b) || 0), 0);
 }
 
-function findPlayer(players: PlayerLine[] | undefined, name?: string, id?: string) {
+function periodCount(period: string | undefined, sport?: string): number {
+  if (!period) return 1;
+  const p = period.toUpperCase().replace(/\s+/g, "");
+  if (p === "F5" || p === "5INN" || p === "1ST5" || p.includes("5INN")) return 5;
+  if (p === "1H" || p === "1STHALF" || p === "1STH") {
+    if (sport === "soccer" || sport === "hockey") return 1;
+    return 2;
+  }
+  if (p === "2H" || p === "2NDHALF") {
+    if (sport === "soccer" || sport === "hockey") return 2;
+    return 4;
+  }
+  if (p === "1Q" || p === "1STQ" || p === "1P" || p === "1STP") return 1;
+  if (p === "2Q" || p === "2P") return 2;
+  if (p === "3Q" || p === "3P") return 3;
+  const n = Number(p.replace(/\D/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function periodDone(game: Game, n: number) {
+  if (game.completed) return true;
+  const period = game.period ?? 0;
+  return period > n;
+}
+
+const STAT_ALIASES: Record<string, string[]> = {
+  K: ["K", "SO", "KS", "STRIKEOUTS"],
+  H: ["H", "HITS"],
+  R: ["R", "RUNS"],
+  RBI: ["RBI", "RBIS"],
+  HR: ["HR", "HRS"],
+  BB: ["BB", "WALKS"],
+  ER: ["ER"],
+  IP: ["IP"],
+  TB: ["TB"],
+  PTS: ["PTS", "POINTS"],
+  REB: ["REB", "REBOUNDS"],
+  AST: ["AST", "ASSISTS"],
+  "3PT": ["3PT", "3PM", "3P", "FG3"],
+  STL: ["STL", "STEALS"],
+  BLK: ["BLK", "BLOCKS"],
+  TO: ["TO", "TOV"],
+  YDS: ["YDS", "YD", "YARDS"],
+  TD: ["TD", "TDS"],
+  REC: ["REC", "RECEPTIONS"],
+  INT: ["INT"],
+  "C/ATT": ["C/ATT", "C-A", "COMP"],
+  G: ["G", "GLS", "GOALS"],
+  A: ["A", "ASSISTS"],
+  SOG: ["SOG", "S"],
+  SV: ["SV", "SAVES"],
+  SOT: ["SOT", "SHOTS ON TARGET"],
+  S: ["S", "SH", "SHOTS"],
+};
+
+function findPlayer(players: PlayerLine[] | undefined, name?: string, id?: string, groupHint?: string) {
   if (!players?.length) return null;
+  const hint = (groupHint || "").toLowerCase();
+  const rank = (p: PlayerLine) => {
+    if (hint && p.group.includes(hint)) return 0;
+    return 1;
+  };
+  const sorted = [...players].sort((a, b) => rank(a) - rank(b));
   if (id) {
-    const byId = players.find((p) => p.id === id);
+    const byId = sorted.find((p) => p.id === id);
     if (byId) return byId;
   }
   if (!name) return null;
-  const exact = players.find((p) => p.name.toLowerCase() === name.toLowerCase());
+  const exact = sorted.find((p) => p.name.toLowerCase() === name.toLowerCase());
   if (exact) return exact;
-  const fuzzy = players.find((p) => fuzzyIncludes(p.name, name) || fuzzyIncludes(p.shortName, name));
+  const last = name.trim().split(/\s+/).pop()?.toLowerCase();
+  if (last && last.length > 2) {
+    const byLast = sorted.find((p) => p.name.toLowerCase().endsWith(last) || p.shortName.toLowerCase().includes(last));
+    if (byLast) return byLast;
+  }
+  const fuzzy = sorted.find((p) => fuzzyIncludes(p.name, name) || fuzzyIncludes(p.shortName, name));
   return fuzzy ?? null;
+}
+
+function readStat(player: PlayerLine, key: string): number | null {
+  const aliases = STAT_ALIASES[key] ?? [key];
+  for (const alias of aliases) {
+    const hit = Object.entries(player.stats).find(([k]) => k.toUpperCase() === alias.toUpperCase());
+    if (hit) {
+      const n = parseStatNumber(hit[1], alias);
+      if (n != null) return n;
+    }
+  }
+  return parseStatNumber(player.stats[key], key);
 }
 
 function readProp(player: PlayerLine, statKey?: string, statLabel?: string): number | null {
@@ -53,27 +120,20 @@ function readProp(player: PlayerLine, statKey?: string, statLabel?: string): num
   const derived = statKey ? derivedStat(player, statKey) : null;
   if (derived != null) return derived;
   const key = (statLabel || statKey || "").split(".").pop() || "";
-  const groupHint = (statKey || "").includes(".") ? (statKey || "").split(".")[0] : "";
-  const groupMap: Record<string, string> = {
+  return readStat(player, key);
+}
+
+function groupHintFromKey(statKey?: string) {
+  if (!statKey?.includes(".")) return "";
+  const g = statKey.split(".")[0] ?? "";
+  const map: Record<string, string> = {
     pitch: "pitch",
     bat: "batt",
     pass: "pass",
     rush: "rush",
     rec: "receiv",
   };
-  const wantedGroup = groupMap[groupHint] ?? groupHint;
-  const candidates = [player];
-  if (wantedGroup && !player.group.includes(wantedGroup)) {
-    return parseStatNumber(player.stats[key], key);
-  }
-  for (const p of candidates) {
-    if (wantedGroup && p.group && !p.group.includes(wantedGroup) && wantedGroup.length > 1) {
-      continue;
-    }
-    const direct = parseStatNumber(p.stats[key], key);
-    if (direct != null) return direct;
-  }
-  return parseStatNumber(player.stats[key], key);
+  return map[g] ?? g;
 }
 
 function ouStatus(current: number, line: number, side: "over" | "under", final: boolean): EvalStatus {
@@ -91,9 +151,13 @@ function ouStatus(current: number, line: number, side: "over" | "under", final: 
   return "leaning";
 }
 
+function scoreReadout(my: number, opp: number) {
+  return `${my}–${opp}`;
+}
+
 export function evaluateLeg(leg: BetLeg, game?: Game, detail?: GameDetail | null): LegEval {
   if (leg.checked) {
-    return { status: "won", note: "Marked hit" };
+    return { status: "won", note: "Marked hit", readout: "Hit" };
   }
   if (!game) {
     return { status: "pending", note: "Waiting on the game" };
@@ -103,126 +167,171 @@ export function evaluateLeg(leg: BetLeg, game?: Game, detail?: GameDetail | null
   const final = game.completed;
   const my = pair?.me.score ?? 0;
   const opp = pair?.opp.score ?? 0;
+  const lead = my - opp;
 
   if (leg.kind === "moneyline") {
     if (!pair) return { status: "pending", note: game.shortDetail };
+    const readout = `${lead >= 0 ? "+" : ""}${lead}`;
     if (final) {
-      if (my === opp) return { status: "push", note: "Final tie" };
+      if (my === opp) return { status: "push", note: "Final tie", readout };
       return my > opp
-        ? { status: "won", note: `Final ${my}–${opp}` }
-        : { status: "lost", note: `Final ${my}–${opp}` };
+        ? { status: "won", note: `Final ${my}–${opp}`, readout }
+        : { status: "lost", note: `Final ${my}–${opp}`, readout };
     }
-    if (my > opp) return { status: "leaning", note: `Up ${my}–${opp}` };
-    if (my < opp) return { status: "threat", note: `Down ${my}–${opp}` };
-    return { status: "pending", note: `Tied ${my}–${opp}` };
+    if (my > opp) return { status: "leaning", note: `Up ${my}–${opp}`, readout };
+    if (my < opp) return { status: "threat", note: `Down ${my}–${opp}`, readout };
+    return { status: "pending", note: `Tied ${my}–${opp}`, readout };
   }
 
   if (leg.kind === "spread" && pair && leg.line != null) {
     const margin = my + leg.line - opp;
+    const readout = `${margin >= 0 ? "+" : ""}${margin.toFixed(1).replace(/\.0$/, "")}`;
     if (final) {
-      if (margin > 0) return { status: "won", note: `${my}–${opp} · covered` };
-      if (margin === 0) return { status: "push", note: `${my}–${opp} · push` };
-      return { status: "lost", note: `${my}–${opp} · missed` };
+      if (margin > 0) return { status: "won", note: `${my}–${opp} · covered`, readout };
+      if (margin === 0) return { status: "push", note: `${my}–${opp} · push`, readout };
+      return { status: "lost", note: `${my}–${opp} · missed`, readout };
     }
-    if (margin > 0) return { status: "leaning", note: `Covering by ${margin.toFixed(1)}` };
-    if (margin === 0) return { status: "pending", note: "On the number" };
-    return { status: "threat", note: `${Math.abs(margin).toFixed(1)} off` };
+    if (margin > 0) return { status: "leaning", note: `Covering by ${Math.abs(margin).toFixed(1)}`, readout };
+    if (margin === 0) return { status: "pending", note: "On the number", readout };
+    return { status: "threat", note: `${Math.abs(margin).toFixed(1)} off`, readout };
   }
 
   if (leg.kind === "total" && leg.line != null && leg.side) {
     const total = game.home.score + game.away.score;
     const status = ouStatus(total, leg.line, leg.side, final);
+    const needed = leg.side === "over" ? Math.max(0, Math.floor(leg.line - total) + 1) : undefined;
     return {
       status,
       note: `${total} / ${leg.line}`,
       current: total,
       line: leg.line,
-      progress: leg.line ? Math.min(1, total / leg.line) : 0,
+      progress: leg.line ? Math.min(1.2, total / leg.line) : 0,
+      readout: `${total} / ${leg.line}`,
+      needed,
     };
   }
 
   if (leg.kind === "team_total" && pair && leg.line != null && leg.side) {
     const status = ouStatus(my, leg.line, leg.side, final);
+    const needed = leg.side === "over" ? Math.max(0, Math.floor(leg.line - my) + 1) : undefined;
     return {
       status,
       note: `${pair.me.abbr} ${my} / ${leg.line}`,
       current: my,
       line: leg.line,
-      progress: leg.line ? Math.min(1, my / leg.line) : 0,
+      progress: leg.line ? Math.min(1.2, my / leg.line) : 0,
+      readout: `${my} / ${leg.line}`,
+      needed,
     };
   }
 
   if (leg.kind === "first_inning_draw") {
     const a = game.away.linescores[0];
     const h = game.home.linescores[0];
-    const inningDone = Boolean(final || (game.period ?? 1) > 1 || (a != null && h != null && (game.period ?? 1) >= 2));
-    if (a == null || h == null) {
-      return { status: "pending", note: game.period === 1 ? "Still the first" : "Waiting on the first" };
+    const inningStarted = a != null || h != null || (game.period ?? 0) >= 1;
+    const inningDone = Boolean(final || (game.period ?? 0) > 1);
+    if (!inningStarted || (a == null && h == null && (game.period ?? 0) < 1)) {
+      return { status: "pending", note: "Waiting on the first", readout: "—" };
     }
-    if (a === 0 && h === 0 && inningDone) return { status: "won", note: "0–0 first" };
-    if (a > 0 || h > 0) return { status: "lost", note: `${a}–${h} first` };
-    return { status: "pending", note: "Still the first" };
+    const av = a ?? 0;
+    const hv = h ?? 0;
+    const readout = scoreReadout(av, hv);
+    if (av === 0 && hv === 0 && inningDone) return { status: "won", note: "0–0 first", readout };
+    if (av > 0 || hv > 0) return { status: "lost", note: `${readout} first`, readout };
+    return { status: "pending", note: "Still the first", readout };
   }
 
   if (leg.kind === "period_winner" && pair && leg.period) {
-    const p = leg.period.toUpperCase();
-    const n = p === "F5" || p === "5INN" ? 5 : p === "1H" || p === "1ST HALF" ? 2 : Number(p.replace(/\D/g, "")) || 1;
-    const mine = sumLines(pair.me.linescores, n);
-    const theirs = sumLines(pair.opp.linescores, n);
-    const have = pair.me.linescores.length >= n && pair.opp.linescores.length >= n;
-    const done = final || have || (game.period ?? 0) > n;
-    if (done && have) {
-      if (mine > theirs) return { status: "won", note: `${p} ${mine}–${theirs}` };
-      if (mine < theirs) return { status: "lost", note: `${p} ${mine}–${theirs}` };
-      return { status: "push", note: `${p} tied` };
+    const n = periodCount(leg.period, game.sport);
+    const isSecondHalf = /^(2H|2NDHALF)$/i.test(leg.period.replace(/\s+/g, ""));
+    const mine = isSecondHalf
+      ? sumLines(pair.me.linescores, n) - sumLines(pair.me.linescores, periodCount("1H", game.sport))
+      : sumLines(pair.me.linescores, n);
+    const theirs = isSecondHalf
+      ? sumLines(pair.opp.linescores, n) - sumLines(pair.opp.linescores, periodCount("1H", game.sport))
+      : sumLines(pair.opp.linescores, n);
+    const done = periodDone(game, n);
+    const readout = scoreReadout(mine, theirs);
+    if (done) {
+      if (mine > theirs) return { status: "won", note: `${trackingLabel(leg)} ${readout}`, readout };
+      if (mine < theirs) return { status: "lost", note: `${trackingLabel(leg)} ${readout}`, readout };
+      return { status: "push", note: `${trackingLabel(leg)} tied`, readout };
     }
-    if (mine > theirs) return { status: "leaning", note: `Ahead ${mine}–${theirs}` };
-    if (mine < theirs) return { status: "threat", note: `Behind ${mine}–${theirs}` };
-    return { status: "pending", note: `Tied ${mine}–${theirs}` };
+    if (mine > theirs) return { status: "leaning", note: `Ahead ${readout}`, readout };
+    if (mine < theirs) return { status: "threat", note: `Behind ${readout}`, readout };
+    return { status: "pending", note: `Tied ${readout}`, readout };
   }
 
   if (leg.kind === "period_total" && leg.line != null && leg.side && leg.period) {
-    const p = leg.period.toUpperCase();
-    const n = p === "F5" ? 5 : p === "1H" ? 2 : 1;
-    const total = sumLines(game.home.linescores, n) + sumLines(game.away.linescores, n);
-    const have = Math.min(game.home.linescores.length, game.away.linescores.length) >= n;
-    const done = final || have;
+    const n = periodCount(leg.period, game.sport);
+    const isSecondHalf = /^(2H|2NDHALF)$/i.test(leg.period.replace(/\s+/g, ""));
+    const firstN = isSecondHalf ? periodCount("1H", game.sport) : 0;
+    const total = isSecondHalf
+      ? sumLines(game.home.linescores, n) +
+        sumLines(game.away.linescores, n) -
+        sumLines(game.home.linescores, firstN) -
+        sumLines(game.away.linescores, firstN)
+      : sumLines(game.home.linescores, n) + sumLines(game.away.linescores, n);
+    const done = periodDone(game, n);
     const status = ouStatus(total, leg.line, leg.side, done);
-    return { status, note: `${total} / ${leg.line}`, current: total, line: leg.line, progress: Math.min(1, total / leg.line) };
+    return {
+      status,
+      note: `${total} / ${leg.line}`,
+      current: total,
+      line: leg.line,
+      progress: Math.min(1.2, total / leg.line),
+      readout: `${total} / ${leg.line}`,
+    };
   }
 
   if (leg.kind === "prop") {
     const players = detail?.players;
-    const player = findPlayer(players, leg.playerName, leg.playerId);
+    const player = findPlayer(players, leg.playerName, leg.playerId, groupHintFromKey(leg.statKey));
     if (!player) {
-      return { status: "pending", note: game.state === "pre" ? "Not started" : "Looking up the line" };
+      return {
+        status: "pending",
+        note: game.state === "pre" ? "Not started" : "Looking up the line",
+        readout: "—",
+      };
     }
     const current = readProp(player, leg.statKey, leg.statLabel);
     if (current == null || leg.line == null || !leg.side) {
-      return { status: "pending", note: player.name };
+      return { status: "pending", note: player.name, readout: player.shortName };
     }
     const status = ouStatus(current, leg.line, leg.side, final);
+    const needed = leg.side === "over" ? Math.max(0, Math.floor(leg.line - current) + 1) : undefined;
+    const extraKeys = (leg.statKey || "").includes("pitch")
+      ? ["IP", "H", "ER", "BB", "K", "SO"]
+      : ["H", "R", "RBI", "HR", "K", "SO", "PTS", "REB", "AST", "YDS", "TD", "REC"];
+    const extraBits = Object.entries(player.stats)
+      .filter(([k, v]) => v && v !== "-" && extraKeys.includes(k))
+      .slice(0, 5)
+      .map(([k, v]) => `${v} ${k}`)
+      .join(" · ");
     return {
       status,
-      note: `${current} / ${leg.line}`,
+      note: `${player.shortName} ${current} / ${leg.line}`,
       current,
       line: leg.line,
-      progress: leg.line ? Math.min(1.15, current / leg.line) : 0,
+      progress: leg.line ? Math.min(1.2, current / leg.line) : 0,
+      readout: `${current} / ${leg.line}`,
+      needed,
+      extra: extraBits || undefined,
     };
   }
 
   if (leg.kind === "double_result" && pair) {
+    const readout = `${lead >= 0 ? "+" : ""}${lead}`;
     if (final) {
       return my > opp
-        ? { status: "won", note: `Won ${my}–${opp}` }
-        : { status: "lost", note: `Lost ${my}–${opp}` };
+        ? { status: "won", note: `Won ${my}–${opp}`, readout }
+        : { status: "lost", note: `Lost ${my}–${opp}`, readout };
     }
-    if (my > opp) return { status: "leaning", note: `Leading ${my}–${opp}` };
-    if (my < opp) return { status: "threat", note: `Trailing ${my}–${opp}` };
-    return { status: "pending", note: "Level" };
+    if (my > opp) return { status: "leaning", note: `Leading ${my}–${opp}`, readout };
+    if (my < opp) return { status: "threat", note: `Trailing ${my}–${opp}`, readout };
+    return { status: "pending", note: "Level", readout };
   }
 
-  void periodSlice;
   return { status: "pending", note: game.shortDetail };
 }
 
@@ -232,7 +341,7 @@ export function evaluateTicket(
   details: Map<string, GameDetail | null>,
 ): { status: TicketStatus; legs: LegEval[]; hits: number } {
   const legs = ticket.legs.map((leg) =>
-    evaluateLeg(leg, games.get(leg.eventId), details.get(leg.eventId)),
+    evaluateLeg(leg, details.get(leg.eventId) ?? games.get(leg.eventId), details.get(leg.eventId)),
   );
   const hits = legs.filter((l, i) => l.status === "won" || ticket.legs[i]?.checked).length;
   if (ticket.settled) return { status: ticket.settled, legs, hits };
@@ -242,4 +351,25 @@ export function evaluateTicket(
     return { status: allPush ? "push" : "won", legs, hits };
   }
   return { status: "open", legs, hits };
+}
+
+export function trackingLabel(leg: BetLeg) {
+  if (leg.kind === "moneyline") return `${leg.teamAbbr ?? ""} lead`.trim();
+  if (leg.kind === "spread") return `${leg.teamAbbr ?? ""} ${leg.line != null && leg.line > 0 ? "+" : ""}${leg.line ?? ""}`.trim();
+  if (leg.kind === "total") return `Total ${leg.side ?? ""}`.trim();
+  if (leg.kind === "team_total") return `${leg.teamAbbr ?? ""} ${leg.side ?? ""}`.trim();
+  if (leg.kind === "first_inning_draw") return "1st Inn";
+  if (leg.kind === "period_winner") {
+    const p = (leg.period ?? "").toUpperCase().replace(/\s+/g, "");
+    if (p === "F5") return "F5";
+    if (p === "1" || p === "1ST") return "Thru 1";
+    return `Thru ${leg.period ?? ""}`.replace("Thru F5", "F5");
+  }
+  if (leg.kind === "period_total") return `${leg.period ?? ""} ${leg.side ?? ""}`.trim();
+  if (leg.kind === "prop") {
+    const name = leg.playerName?.split(" ").pop() ?? "";
+    const stat = leg.statLabel || leg.statKey?.split(".").pop() || "";
+    return `${name} ${stat}`.trim() || leg.selection;
+  }
+  return leg.selection;
 }
