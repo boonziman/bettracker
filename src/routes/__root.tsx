@@ -7,8 +7,19 @@ import { AuthProvider } from "@/lib/auth/provider";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Slate";
+const isSpa = import.meta.env.VITE_SPA === "1";
+const base = import.meta.env.BASE_URL || "/";
 const host = import.meta.env.VITE_PUBLIC_HOSTNAME;
-const ogImage = host ? `https://${host}/og.jpg` : undefined;
+const pagesOrigin = import.meta.env.VITE_PAGES_ORIGIN as string | undefined;
+const ogImage = pagesOrigin
+  ? `${pagesOrigin.replace(/\/$/, "")}/og.jpg`
+  : host
+    ? `https://${host}/og.jpg`
+    : undefined;
+
+function pub(path: string) {
+  return `${base}${path.replace(/^\//, "")}`;
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -32,10 +43,10 @@ export const Route = createRootRoute({
         : []),
     ],
     links: [
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "icon", type: "image/svg+xml", href: pub("favicon.svg") },
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
+      { rel: "manifest", href: pub("__grok/manifest.webmanifest") },
+      { rel: "apple-touch-icon", href: pub("__grok/icon-180.png") },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -60,29 +71,37 @@ function RootDocument() {
       }),
   );
 
+  const app = (
+    <>
+      <PreviewHostBridge />
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Outlet />
+          <Toaster
+            theme="dark"
+            position="top-center"
+            toastOptions={{
+              style: {
+                background: "var(--color-elevated)",
+                color: "var(--color-fg)",
+                border: "1px solid var(--color-line)",
+              },
+            }}
+          />
+        </AuthProvider>
+      </QueryClientProvider>
+    </>
+  );
+
+  if (isSpa) return app;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        <PreviewHostBridge />
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <Outlet />
-            <Toaster
-              theme="dark"
-              position="top-center"
-              toastOptions={{
-                style: {
-                  background: "var(--color-elevated)",
-                  color: "var(--color-fg)",
-                  border: "1px solid var(--color-line)",
-                },
-              }}
-            />
-          </AuthProvider>
-        </QueryClientProvider>
+        {app}
         <Scripts />
       </body>
     </html>

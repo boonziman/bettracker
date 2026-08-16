@@ -10,12 +10,12 @@ const scoreCache = new Map<string, CacheEntry<Game[]>>();
 const sumCache = new Map<string, CacheEntry<GameDetail | null>>();
 
 async function getJson(url: string) {
-  const res = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      "user-agent": "SlateDesk/1.0 (+https://github.com/boonziman/bettracker)",
-    },
-  });
+  const headers: Record<string, string> = {};
+  if (typeof window === "undefined") {
+    headers.accept = "application/json";
+    headers["user-agent"] = "SlateDesk/1.0 (+https://github.com/boonziman/bettracker)";
+  }
+  const res = await fetch(url, Object.keys(headers).length ? { headers } : undefined);
   if (!res.ok) throw new Error(`ESPN ${res.status}`);
   return res.json();
 }
@@ -88,14 +88,16 @@ export function allLeagueIds() {
   return LEAGUES.map((l) => l.id);
 }
 
+/** Browser talks to ESPN's web API (CORS open). Preview can use the local proxy. */
 export async function loadSlateClient(leagueIds: string[]): Promise<Game[]> {
-  if (typeof window === "undefined") return loadSlate(leagueIds);
-  try {
-    const res = await fetch(`/api/espn/slate?leagues=${encodeURIComponent(leagueIds.join(","))}`);
-    const type = res.headers.get("content-type") ?? "";
-    if (res.ok && type.includes("json")) return (await res.json()) as Game[];
-  } catch {
-    /* fall through to direct ESPN */
+  if (typeof window !== "undefined" && import.meta.env.VITE_SPA !== "1") {
+    try {
+      const res = await fetch(`/api/espn/slate?leagues=${encodeURIComponent(leagueIds.join(","))}`);
+      const type = res.headers.get("content-type") ?? "";
+      if (res.ok && type.includes("json")) return (await res.json()) as Game[];
+    } catch {
+      /* fall through to ESPN */
+    }
   }
   return loadSlate(leagueIds);
 }
@@ -105,15 +107,16 @@ export async function loadGameDetailClient(
   eventId: string,
   fallback?: Game,
 ): Promise<GameDetail | null> {
-  if (typeof window === "undefined") return loadGameDetail(leagueId, eventId, fallback);
-  try {
-    const res = await fetch(
-      `/api/espn/game?league=${encodeURIComponent(leagueId)}&event=${encodeURIComponent(eventId)}`,
-    );
-    const type = res.headers.get("content-type") ?? "";
-    if (res.ok && type.includes("json")) return (await res.json()) as GameDetail | null;
-  } catch {
-    /* fall through */
+  if (typeof window !== "undefined" && import.meta.env.VITE_SPA !== "1") {
+    try {
+      const res = await fetch(
+        `/api/espn/game?league=${encodeURIComponent(leagueId)}&event=${encodeURIComponent(eventId)}`,
+      );
+      const type = res.headers.get("content-type") ?? "";
+      if (res.ok && type.includes("json")) return (await res.json()) as GameDetail | null;
+    } catch {
+      /* fall through */
+    }
   }
   return loadGameDetail(leagueId, eventId, fallback);
 }

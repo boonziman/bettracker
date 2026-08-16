@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { BookOpen, History, LayoutGrid, Plus } from "lucide-react";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
+import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { evaluateTicket } from "@/lib/bets/evaluate";
 import { useBook } from "@/lib/bets/store";
@@ -87,19 +88,21 @@ export function Shell({
               <Plus className="size-4" />
               <span className="hidden sm:inline">New ticket</span>
             </button>
-            {isPending ? (
-              <div className="size-8 animate-pulse rounded-full bg-elevated" />
-            ) : user ? (
-              <SignedIn>
-                <UserButton />
-              </SignedIn>
-            ) : (
-              <SignedOut>
-                <Link to="/login" className="text-sm text-muted hover:text-fg">
-                  Sign in
-                </Link>
-              </SignedOut>
-            )}
+            {authEnabled ? (
+              isPending ? (
+                <div className="size-8 animate-pulse rounded-full bg-elevated" />
+              ) : user ? (
+                <SignedIn>
+                  <UserButton />
+                </SignedIn>
+              ) : (
+                <SignedOut>
+                  <Link to="/login" className="text-sm text-muted hover:text-fg">
+                    Sign in
+                  </Link>
+                </SignedOut>
+              )
+            ) : null}
           </div>
         </div>
         {open.length > 0 ? (

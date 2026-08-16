@@ -1,11 +1,18 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
+const isGitHubPages = process.env.GITHUB_PAGES === "1";
+const PAGES_BASE = "/bettracker/";
 
 /**
  * Finish PGLite bootstrap during dev-server setup (before traffic). Vite awaits
@@ -123,37 +130,53 @@ function authPopupPlugin(): Plugin {
   };
 }
 
-// `0.0.0.0:8080` is the live-preview contract — don't change host/port.
-// Keep `nitro` gated to `build` (the Vercel deploy target): enabled in dev it
-// opens a second dev-server port, which breaks the single-port preview.
-// The dev server starts once `src/router.tsx` and `src/routes/` exist — see
-// AGENTS.md § "First scaffold".
-export default defineConfig(({ command }) => ({
-  server: {
-    host: "0.0.0.0",
-    port: 8080,
-    strictPort: true,
-  },
-  resolve: { tsconfigPaths: true },
-  plugins: [
-    pgliteBootstrapPlugin(),
-    // Before tanstackStart so /auth/popup never falls through to the SPA.
-    authPopupPlugin(),
-    // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
-    grokPwaPlugin(),
-    tailwindcss(),
-    tanstackStart(),
-    ...(command === "build"
-      ? [
-          nitro({
-            preset: "vercel",
-            // Auto-registers server/middleware/* (the PWA install page +
-            // manifest + head-tag middleware). Nitro v3 defaults serverDir to
-            // false, so removing this silently unwires /?install=1 on deploys.
-            serverDir: "./server",
-          }),
-        ]
-      : []),
-    viteReact(),
-  ],
-}));
+// GitHub Pages is static-only. Build a client SPA (no Nitro, no Start SSR).
+// Live preview keeps TanStack Start + the Vercel-gated Nitro plugin.
+export default defineConfig(({ command }) => {
+  if (isGitHubPages) {
+    return {
+      base: PAGES_BASE,
+      resolve: { tsconfigPaths: true },
+      build: {
+        outDir: ".output/public",
+        emptyOutDir: true,
+        rollupOptions: {
+          input: path.resolve(rootDir, "pages.html"),
+        },
+      },
+      plugins: [
+        tanstackRouter({
+          target: "react",
+          autoCodeSplitting: true,
+        }),
+        tailwindcss(),
+        viteReact(),
+      ],
+    };
+  }
+
+  return {
+    server: {
+      host: "0.0.0.0",
+      port: 8080,
+      strictPort: true,
+    },
+    resolve: { tsconfigPaths: true },
+    plugins: [
+      pgliteBootstrapPlugin(),
+      authPopupPlugin(),
+      grokPwaPlugin(),
+      tailwindcss(),
+      tanstackStart(),
+      ...(command === "build"
+        ? [
+            nitro({
+              preset: "vercel",
+              serverDir: "./server",
+            }),
+          ]
+        : []),
+      viteReact(),
+    ],
+  };
+});

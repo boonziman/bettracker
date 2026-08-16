@@ -63,7 +63,7 @@ export function leagueById(id: string) {
 }
 
 export function scoreboardUrl(league: LeagueDef, dates?: string) {
-  const base = `https://site.api.espn.com/apis/site/v2/sports/${league.espnSport}/${league.espnLeague}/scoreboard`;
+  const base = `https://site.web.api.espn.com/apis/site/v2/sports/${league.espnSport}/${league.espnLeague}/scoreboard`;
   const params = new URLSearchParams();
   if (dates) params.set("dates", dates);
   if (league.sport === "football" && league.id === "cfb") params.set("limit", "80");
@@ -72,7 +72,7 @@ export function scoreboardUrl(league: LeagueDef, dates?: string) {
 }
 
 export function summaryUrl(league: LeagueDef, eventId: string) {
-  return `https://site.api.espn.com/apis/site/v2/sports/${league.espnSport}/${league.espnLeague}/summary?event=${encodeURIComponent(eventId)}`;
+  return `https://site.web.api.espn.com/apis/site/v2/sports/${league.espnSport}/${league.espnLeague}/summary?event=${encodeURIComponent(eventId)}`;
 }
 
 export function gamecastHref(league: LeagueDef, eventId: string) {
