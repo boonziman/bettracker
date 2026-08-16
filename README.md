@@ -4,9 +4,9 @@ A live bet desk for every sport. The slate, your book, and Gamecast-style watch
 pages — moneyline, spread, totals, team totals, period bets, and player props —
 scored against real ESPN data.
 
-**Live site:** [boonziman.github.io/bettracker](https://boonziman.github.io/bettracker/)
+**Live site (send this):** [boonziman.github.io/bettracker](https://boonziman.github.io/bettracker/)
 
-Tickets stay on the device (this browser). No Vercel, no server.
+No Vercel. Tickets stay on the device (this browser).
 
 ## What you can do
 
@@ -21,15 +21,16 @@ Tickets stay on the device (this browser). No Vercel, no server.
 
 ## Hosting (GitHub Pages only)
 
-This is a static app. ESPN is called from the browser (their API allows it).
-Every push to `main` rebuilds and publishes the site.
+This is a static app. ESPN is called from the browser. The live site is already
+published from this repo.
 
-If the live URL still shows this README instead of the desk:
+If you change the app later and want GitHub to rebuild it automatically:
 
-1. Open the repo → **Settings → Pages**
+1. Repo → **Settings → Pages**
 2. Set **Source** to **GitHub Actions**
-3. Open the **Actions** tab → **Deploy to GitHub Pages** → **Run workflow**
-4. Wait about a minute, then open [the live site](https://boonziman.github.io/bettracker/)
+3. Open **Actions** → **Deploy to GitHub Pages** → **Run workflow**
+
+Until you flip that switch, the checked-in `index.html` + `assets/` are what Pages serves.
 
 ## Local
 
@@ -38,11 +39,13 @@ npm install
 npm run dev
 ```
 
-To build the exact GitHub Pages output:
+To rebuild the GitHub Pages files:
 
 ```bash
 npm run build:pages
 ```
+
+Then copy `.output/public/index.html`, `404.html`, `.nojekyll`, and `assets/` to the repo root and push.
 
 ## Privacy
 
