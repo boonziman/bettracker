@@ -521,7 +521,13 @@ function parseUfc(ev) {
   };
 }
 
-async function jget(url) {
+function espnBase() {
+  var h = location.hostname;
+  if (h === "127.0.0.1" || h === "localhost") return "/espn/";
+  return "https://site.api.espn.com/";
+}
+async function jget(path) {
+  var url = path.indexOf("http") === 0 ? path : espnBase() + path.replace(/^\/+/, "");
   var r = await fetch(url, { cache: "no-store" });
   if (!r.ok) throw new Error("espn " + r.status);
   return r.json();
@@ -534,9 +540,9 @@ async function fetchLive() {
   try {
     var day = dateStr();
     var pack = await Promise.all([
-      jget("https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=" + day),
-      jget("https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=" + day),
-      jget("https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard")
+      jget("apis/site/v2/sports/baseball/mlb/scoreboard?dates=" + day),
+      jget("apis/site/v2/sports/basketball/wnba/scoreboard?dates=" + day),
+      jget("apis/site/v2/sports/mma/ufc/scoreboard")
     ]);
     var mlb = pack[0], wnba = pack[1], ufc = pack[2];
     var milEv, bosEv, milId, bosId;
@@ -558,8 +564,8 @@ async function fetchLive() {
     renderAll();
 
     var sums = await Promise.all([
-      milId ? jget("https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=" + milId) : null,
-      bosId ? jget("https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=" + bosId) : null
+      milId ? jget("apis/site/v2/sports/baseball/mlb/summary?event=" + milId) : null,
+      bosId ? jget("apis/site/v2/sports/baseball/mlb/summary?event=" + bosId) : null
     ]);
     if (sums[0]) live.mil = parseMlb(sums[0], milEv, milId);
     if (sums[1]) live.bos = parseMlb(sums[1], bosEv, bosId);
