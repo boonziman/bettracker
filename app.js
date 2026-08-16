@@ -190,11 +190,13 @@ function diamond(a, b, c) {
 }
 
 function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
-    return ({ "&": "&", "<": "<", ">": ">", '"': """ })[c];
-  });
+  var out = String(s == null ? "" : s);
+  out = out.split("&").join(String.fromCharCode(38)+"amp;");
+  out = out.split("<").join(String.fromCharCode(38)+"lt;");
+  out = out.split(">").join(String.fromCharCode(38)+"gt;");
+  out = out.split('"').join(String.fromCharCode(38)+"quot;");
+  return out;
 }
-
 function renderGames() {
   var el = document.getElementById("games");
   var html = "";
