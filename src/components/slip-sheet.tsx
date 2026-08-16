@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { payout } from "@/lib/bets/odds";
 import { useBook } from "@/lib/bets/store";
-import type { BetKind, BetLeg } from "@/lib/bets/types";
+import type { BetKind, BetLeg, FightMethod } from "@/lib/bets/types";
 import { propCatalog, eventLabel } from "@/lib/espn/leagues";
 import { useGameDetail, useSlate } from "@/lib/espn/hooks";
 import type { Game } from "@/lib/espn/types";
@@ -23,6 +23,14 @@ const KINDS: { id: BetKind; label: string }[] = [
   { id: "period_winner", label: "Period" },
   { id: "period_total", label: "Period total" },
   { id: "first_inning_draw", label: "1st inning 0-0" },
+  { id: "method", label: "Method" },
+];
+
+const FIGHT_LINES = [0.5, 1.5, 2.5, 3.5, 4.5];
+const METHODS: { id: FightMethod; label: string }[] = [
+  { id: "ko", label: "KO/TKO" },
+  { id: "submission", label: "Submission" },
+  { id: "decision", label: "Decision" },
 ];
 
 export function SlipSheet() {
@@ -133,7 +141,12 @@ export function SlipSheet() {
   );
 }
 
-function periodPresets(sport?: Game["sport"]) {
+function periodPresets(game?: Game) {
+  const sport = game?.sport;
+  if (sport === "mma" || game?.format === "fight") {
+    const n = game?.scheduledRounds && game.scheduledRounds > 0 ? game.scheduledRounds : 5;
+    return Array.from({ length: n }, (_, i) => `R${i + 1}`);
+  }
   if (sport === "baseball" || sport === "softball") return ["F5", "1"];
   if (sport === "basketball" || sport === "football" || sport === "afl" || sport === "lacrosse") return ["1Q", "1H", "2H"];
   if (sport === "hockey") return ["1P", "2P", "1"];
@@ -157,6 +170,7 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
   const [player, setPlayer] = useState("");
   const [playerId, setPlayerId] = useState("");
   const [statKey, setStatKey] = useState("");
+  const [method, setMethod] = useState<FightMethod>("ko");
 
   useEffect(() => {
     const next = focusEventId || lastLegEvent;
@@ -189,9 +203,14 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
     }
     if ((kind === "total" || kind === "period_total") && game.odds?.overUnder != null) {
       setLine(String(game.odds.overUnder));
+    } else if (kind === "total" && game.format === "fight") {
+      setLine(game.scheduledRounds === 5 ? "2.5" : "2.5");
     }
     if (game.sport === "baseball" && (kind === "period_winner" || kind === "period_total")) {
       setPeriod("F5");
+    }
+    if (game.format === "fight" && kind === "period_winner") {
+      setPeriod("R1");
     }
   }, [game?.id, kind, team, game]);
 
@@ -228,14 +247,25 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
       };
     } else if (kind === "total") {
       const ou = game.odds?.overUnder ?? lineN;
+      const rounds = game.format === "fight";
       leg = {
         kind,
         leagueId: game.leagueId,
         eventId: game.id,
         eventLabel: ev,
-        selection: `${side === "over" ? "Over" : "Under"} ${ou}`,
+        selection: `${side === "over" ? "Over" : "Under"} ${ou}${rounds ? " rounds" : ""}`,
         line: ou,
         side,
+      };
+    } else if (kind === "method") {
+      const label = METHODS.find((m) => m.id === method)?.label ?? "Method";
+      leg = {
+        kind,
+        leagueId: game.leagueId,
+        eventId: game.id,
+        eventLabel: ev,
+        selection: label,
+        method,
       };
     } else if (kind === "team_total") {
       leg = {
@@ -349,9 +379,12 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
           <div className="mt-3 flex flex-wrap gap-1.5">
             {KINDS.filter((k) => {
               if (k.id === "first_inning_draw") return game.sport === "baseball" || game.sport === "softball";
-              if (game.format === "fight" || game.format === "field") return k.id === "moneyline";
+              if (game.format === "fight") {
+                return k.id === "moneyline" || k.id === "total" || k.id === "period_winner" || k.id === "method";
+              }
+              if (game.format === "field") return k.id === "moneyline";
               if (game.sport === "tennis") return k.id === "moneyline" || k.id === "spread" || k.id === "total";
-              return true;
+              return k.id !== "method";
             }).map((k) => (
               <button
                 key={k.id}
@@ -362,7 +395,11 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
                   kind === k.id ? "bg-accent text-accent-fg" : "bg-elevated text-muted",
                 )}
               >
-                {k.label}
+                {game.format === "fight" && k.id === "total"
+                  ? "Rounds"
+                  : game.format === "fight" && k.id === "period_winner"
+                    ? "Round"
+                    : k.label}
               </button>
             ))}
           </div>
@@ -396,9 +433,45 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
             </div>
           ) : null}
 
+          {kind === "total" && game.format === "fight" ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {FIGHT_LINES.filter((n) => n < (game.scheduledRounds ?? 5)).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setLine(String(n))}
+                  className={cn(
+                    "h-8 rounded-md px-2 text-2xs tabular",
+                    line === String(n) ? "bg-accent text-accent-fg" : "bg-elevated text-muted",
+                  )}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {kind === "method" ? (
+            <div className="mt-3 grid grid-cols-3 gap-1.5">
+              {METHODS.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setMethod(m.id)}
+                  className={cn(
+                    "h-10 rounded-md text-xs",
+                    method === m.id ? "bg-accent text-accent-fg" : "bg-elevated text-muted",
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           {kind === "period_winner" || kind === "period_total" ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {periodPresets(game.sport).map((p) => (
+              {periodPresets(game).map((p) => (
                 <button
                   key={p}
                   type="button"

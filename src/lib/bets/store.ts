@@ -290,3 +290,111 @@ export function seedFromSlate(games: Game[]) {
 
   markSeeded();
 }
+
+const UFC330 = {
+  islam: {
+    eventId: "401869336",
+    eventLabel: "Makhachev vs Machado Garry",
+  },
+  dern: {
+    eventId: "401878072",
+    eventLabel: "Dern vs Robertson",
+  },
+  turner: {
+    eventId: "401886764",
+    eventLabel: "Turner vs Fernandes",
+  },
+  brewers: {
+    eventId: "401816545",
+    eventLabel: "MIL @ LAD",
+  },
+} as const;
+
+function u45Islam(): BetLeg {
+  return {
+    id: "leg-islam-u45",
+    kind: "total",
+    leagueId: "ufc",
+    eventId: UFC330.islam.eventId,
+    eventLabel: UFC330.islam.eventLabel,
+    selection: "Under 4.5 rounds",
+    line: 4.5,
+    side: "under",
+    odds: 130,
+  };
+}
+
+/** Tonight's live card — upserted so the book matches the written tickets. */
+export function ensureTonightTickets() {
+  const { tickets, addTicket, updateTicket } = useBook.getState();
+  const wanted: Array<Omit<Ticket, "createdAt" | "toWin"> & { id: string }> = [
+    {
+      id: "tix-ufc330-brewers-u45",
+      label: "Brewers + U 4.5",
+      stake: 25,
+      odds: 320,
+      legs: [
+        {
+          id: "leg-mil-ml",
+          kind: "moneyline",
+          leagueId: "mlb",
+          eventId: UFC330.brewers.eventId,
+          eventLabel: UFC330.brewers.eventLabel,
+          selection: "MIL Brewers ML",
+          teamAbbr: "MIL",
+          odds: -120,
+        },
+        { ...u45Islam(), id: "leg-islam-u45-a" },
+      ],
+    },
+    {
+      id: "tix-ufc330-3leg",
+      label: "UFC 330 3-leg",
+      stake: 25,
+      odds: 524,
+      legs: [
+        { ...u45Islam(), id: "leg-islam-u45-b" },
+        {
+          id: "leg-dern-ml",
+          kind: "moneyline",
+          leagueId: "ufc",
+          eventId: UFC330.dern.eventId,
+          eventLabel: UFC330.dern.eventLabel,
+          selection: "Mackenzie Dern to win",
+          teamAbbr: "DERN",
+          odds: -215,
+        },
+        {
+          id: "leg-turner-ml",
+          kind: "moneyline",
+          leagueId: "ufc",
+          eventId: UFC330.turner.eventId,
+          eventLabel: UFC330.turner.eventLabel,
+          selection: "Jalin Turner to win",
+          teamAbbr: "TURNER",
+          odds: -117,
+        },
+      ],
+    },
+    {
+      id: "tix-ufc330-u45",
+      label: "Makhachev vs Garry U 4.5",
+      stake: 79,
+      odds: 130,
+      legs: [{ ...u45Islam(), id: "leg-islam-u45-c" }],
+    },
+  ];
+  for (const t of wanted) {
+    const existing = tickets.find((x) => x.id === t.id);
+    if (existing) {
+      const same =
+        existing.stake === t.stake &&
+        existing.odds === t.odds &&
+        existing.legs.length === t.legs.length &&
+        existing.legs.every((l, i) => l.eventId === t.legs[i]?.eventId && l.kind === t.legs[i]?.kind && l.side === t.legs[i]?.side && l.line === t.legs[i]?.line);
+      if (!same) updateTicket(t.id, { label: t.label, stake: t.stake, odds: t.odds, legs: t.legs });
+    } else {
+      addTicket(t);
+    }
+  }
+}

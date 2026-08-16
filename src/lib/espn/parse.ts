@@ -216,6 +216,17 @@ export function parseEvent(raw: unknown, league: LeagueDef, format: EventFormat 
   };
 }
 
+function parseFightMethod(details: unknown): Game["fightMethod"] | undefined {
+  for (const raw of asArr(details)) {
+    const text = str(asObj(asObj(raw).type).text).toLowerCase();
+    if (!text.includes("winner") && !text.includes("result")) continue;
+    if (text.includes("kotko") || text.includes("ko/tko") || /\bko\b/.test(text) || text.includes("tko")) return "ko";
+    if (text.includes("submission")) return "submission";
+    if (text.includes("decision")) return "decision";
+  }
+  return undefined;
+}
+
 function parseFight(event: Json, compRaw: unknown, league: LeagueDef): Game | null {
   const comp = asObj(compRaw);
   const pair = pairCompetitors(asArr(comp.competitors), "mma");
@@ -223,6 +234,12 @@ function parseFight(event: Json, compRaw: unknown, league: LeagueDef): Game | nu
   const st = readStatus(comp);
   const weight = str(asObj(comp.type).abbreviation || asObj(comp.type).text);
   const card = str(event.shortName || event.name, league.short);
+  const status = asObj(comp.status);
+  const clockSeconds = num(status.clock, -1);
+  const scheduledRounds = num(asObj(asObj(comp.format).regulation).periods) || undefined;
+  const fightMethod = parseFightMethod(comp.details);
+  const methodLabel = fightMethod === "ko" ? "KO/TKO" : fightMethod === "submission" ? "submission" : fightMethod === "decision" ? "decision" : "";
+  const winnerName = pair.home.winner ? pair.home.shortName : pair.away.winner ? pair.away.shortName : "";
   return {
     id: str(comp.id || event.id),
     leagueId: league.id,
@@ -238,13 +255,18 @@ function parseFight(event: Json, compRaw: unknown, league: LeagueDef): Game | nu
     away: pair.away,
     odds: parseOdds(comp.odds),
     lastPlay:
-      st.completed && pair.home.winner
-        ? `${pair.home.shortName} wins`
-        : st.completed && pair.away.winner
-          ? `${pair.away.shortName} wins`
-          : card,
+      st.completed && winnerName
+        ? `${winnerName} wins${methodLabel ? ` by ${methodLabel}` : ""}`
+        : st.completed && pair.home.winner
+          ? `${pair.home.shortName} wins`
+          : st.completed && pair.away.winner
+            ? `${pair.away.shortName} wins`
+            : card,
     headline: card,
     weightClass: weight || undefined,
+    scheduledRounds,
+    clockSeconds: clockSeconds >= 0 ? clockSeconds : undefined,
+    fightMethod,
   };
 }
 
@@ -485,11 +507,18 @@ export function parseSummary(raw: unknown, league: LeagueDef, fallback?: Game): 
           ]
         : [],
   };
-  const parsed = parseEvent(
-    { ...ev, name: fallback?.name, shortName: fallback?.shortName, date: fallback?.date },
-    league,
-    fallback?.format ?? "match",
-  );
+  const parsed =
+    league.sport === "mma"
+      ? parseFight(
+          { ...ev, name: fallback?.name, shortName: fallback?.shortName, date: fallback?.date },
+          asArr(ev.competitions)[0] ?? ev,
+          league,
+        )
+      : parseEvent(
+          { ...ev, name: fallback?.name, shortName: fallback?.shortName, date: fallback?.date },
+          league,
+          fallback?.format ?? "match",
+        );
   const game = parsed ?? fallback;
   if (!game) return null;
 

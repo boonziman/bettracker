@@ -94,6 +94,11 @@ export type Game = {
   headline?: string;
   weightClass?: string;
   field?: FieldEntry[];
+  /** UFC/PFL scheduled length (3 or 5). */
+  scheduledRounds?: number;
+  /** Elapsed seconds in the current round (ESPN status.clock). */
+  clockSeconds?: number;
+  fightMethod?: "ko" | "submission" | "decision";
 };
 
 export type GameDetail = Game & {

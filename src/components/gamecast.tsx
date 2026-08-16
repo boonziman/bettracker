@@ -3,7 +3,7 @@ import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CountDots, Diamond } from "@/components/diamond";
 import { PulseNum } from "@/components/pulse";
-import { evaluateLeg, trackingLabel } from "@/lib/bets/evaluate";
+import { evaluateLeg, trackingLabel, elapsedRounds, formatRounds } from "@/lib/bets/evaluate";
 import { statusLabel, statusTone } from "@/lib/bets/status";
 import type { BetLeg, EvalStatus } from "@/lib/bets/types";
 import { gamecastHref, leagueById } from "@/lib/espn/leagues";
@@ -167,16 +167,36 @@ function TeamLine({
 }
 
 function FightBoard({ game, live }: { game: Game; live: boolean }) {
+  const rds = elapsedRounds(game);
+  const method =
+    game.fightMethod === "ko"
+      ? "KO/TKO"
+      : game.fightMethod === "submission"
+        ? "Submission"
+        : game.fightMethod === "decision"
+          ? "Decision"
+          : "";
+  const clock = game.clock && game.clock !== "-" ? game.clock : "";
+  const roundLabel = game.completed
+    ? `${formatRounds(rds)} rds${method ? ` · ${method}` : ""}`
+    : live && (game.period ?? 0) > 0
+      ? `R${game.period}${clock ? ` ${clock}` : ""} · ${formatRounds(rds)}`
+      : game.scheduledRounds
+        ? `${game.scheduledRounds} rounds`
+        : "";
   return (
-    <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3">
-      <Fighter team={game.away} />
-      <p className={cn("type-display text-2xl tabular leading-none", game.away.winner ? "text-win" : live || game.completed ? "text-fg" : "text-subtle")}>
-        {game.away.winner ? "W" : game.home.winner ? "L" : live || game.completed ? (game.away.score || "–") : "–"}
-      </p>
-      <Fighter team={game.home} />
-      <p className={cn("type-display text-2xl tabular leading-none", game.home.winner ? "text-win" : live || game.completed ? "text-fg" : "text-subtle")}>
-        {game.home.winner ? "W" : game.away.winner ? "L" : live || game.completed ? (game.home.score || "–") : "–"}
-      </p>
+    <div className="mt-4">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3">
+        <Fighter team={game.away} />
+        <p className={cn("type-display text-2xl tabular leading-none", game.away.winner ? "text-win" : live || game.completed ? "text-fg" : "text-subtle")}>
+          {game.away.winner ? "W" : game.home.winner ? "L" : live || game.completed ? (game.away.score || "–") : "–"}
+        </p>
+        <Fighter team={game.home} />
+        <p className={cn("type-display text-2xl tabular leading-none", game.home.winner ? "W" : game.away.winner ? "L" : live || game.completed ? "text-fg" : "text-subtle")}>
+          {game.home.winner ? "W" : game.away.winner ? "L" : live || game.completed ? (game.home.score || "–") : "–"}
+        </p>
+      </div>
+      {roundLabel ? <p className="mt-3 text-xs tabular text-muted">{roundLabel}</p> : null}
     </div>
   );
 }

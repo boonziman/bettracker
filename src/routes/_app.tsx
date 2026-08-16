@@ -2,7 +2,7 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Shell } from "@/components/shell";
 import { SlipSheet } from "@/components/slip-sheet";
-import { seedFromSlate, ensureNewLeagues, useBook, useBookHydrated } from "@/lib/bets/store";
+import { seedFromSlate, ensureNewLeagues, ensureTonightTickets, useBook, useBookHydrated } from "@/lib/bets/store";
 import { useCloudSync } from "@/lib/bets/use-cloud-sync";
 import { useSlate, useTicketDetails } from "@/lib/espn/hooks";
 import type { Game } from "@/lib/espn/types";
@@ -27,7 +27,10 @@ function AppLayout() {
     if (hydrated) ensureNewLeagues();
   }, [hydrated]);
   useEffect(() => {
-    if (hydrated && games.length) seedFromSlate(games);
+    if (hydrated && games.length) {
+      seedFromSlate(games);
+      ensureTonightTickets();
+    }
   }, [games, hydrated]);
 
   return (

@@ -247,6 +247,56 @@ function OddsRow({ game }: { game: Game }) {
         }),
     });
   }
+  if (game.format === "fight" && game.odds?.overUnder == null) {
+    const scheduled = game.scheduledRounds && game.scheduledRounds > 0 ? game.scheduledRounds : 3;
+    const lines = scheduled >= 5 ? [1.5, 2.5, 4.5] : [1.5, 2.5];
+    for (const ln of lines) {
+      chips.push({
+        label: `O ${ln}`,
+        onClick: () =>
+          add({
+            kind: "total",
+            leagueId: game.leagueId,
+            eventId: game.id,
+            eventLabel: ev,
+            selection: `Over ${ln} rounds`,
+            line: ln,
+            side: "over",
+          }),
+      });
+      chips.push({
+        label: `U ${ln}`,
+        onClick: () =>
+          add({
+            kind: "total",
+            leagueId: game.leagueId,
+            eventId: game.id,
+            eventLabel: ev,
+            selection: `Under ${ln} rounds`,
+            line: ln,
+            side: "under",
+          }),
+      });
+    }
+    for (const m of [
+      { id: "ko" as const, label: "KO/TKO" },
+      { id: "submission" as const, label: "Sub" },
+      { id: "decision" as const, label: "Dec" },
+    ]) {
+      chips.push({
+        label: m.label,
+        onClick: () =>
+          add({
+            kind: "method",
+            leagueId: game.leagueId,
+            eventId: game.id,
+            eventLabel: ev,
+            selection: m.id === "ko" ? "KO/TKO" : m.id === "submission" ? "Submission" : "Decision",
+            method: m.id,
+          }),
+      });
+    }
+  }
   if (!chips.length) return <div className="px-3.5 pb-3" />;
   return (
     <div className="flex flex-wrap gap-1.5 border-t border-line px-3 py-2.5">

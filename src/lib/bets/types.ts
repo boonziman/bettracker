@@ -7,7 +7,10 @@ export type BetKind =
   | "period_winner"
   | "period_total"
   | "first_inning_draw"
-  | "double_result";
+  | "double_result"
+  | "method";
+
+export type FightMethod = "ko" | "submission" | "decision";
 
 export type BetSide = "over" | "under";
 
@@ -28,6 +31,7 @@ export type BetLeg = {
   line?: number;
   side?: BetSide;
   period?: string;
+  method?: FightMethod;
   odds?: number;
   checked?: boolean;
 };

@@ -175,6 +175,29 @@ function scoreReadout(my: number, opp: number) {
   return `${my}–${opp}`;
 }
 
+const FIGHT_ROUND_SEC = 300;
+
+export function elapsedRounds(game: Game): number {
+  const period = game.period ?? 0;
+  if (period <= 0 && !game.completed) return 0;
+  const sec = fightClockSeconds(game);
+  const p = Math.max(period, game.completed ? 1 : 0);
+  if (p <= 0) return 0;
+  return p - 1 + Math.min(Math.max(sec, 0), FIGHT_ROUND_SEC) / FIGHT_ROUND_SEC;
+}
+
+function fightClockSeconds(game: Game): number {
+  if (game.clockSeconds != null && Number.isFinite(game.clockSeconds)) return Math.max(0, game.clockSeconds);
+  const clock = game.clock || "";
+  const m = clock.match(/^(\d+):(\d+)/);
+  if (m) return Number(m[1]) * 60 + Number(m[2]);
+  return 0;
+}
+
+export function formatRounds(n: number) {
+  return n.toFixed(1);
+}
+
 export function evaluateLeg(leg: BetLeg, game?: Game, detail?: GameDetail | null): LegEval {
   if (leg.checked) {
     return { status: "won", note: "Marked hit", readout: "Hit" };
@@ -238,6 +261,31 @@ export function evaluateLeg(leg: BetLeg, game?: Game, detail?: GameDetail | null
   }
 
   if (leg.kind === "total" && leg.line != null && leg.side) {
+    if (game.format === "fight") {
+      const current = elapsedRounds(game);
+      const started = game.completed || game.state === "in" || (game.period ?? 0) > 0;
+      const readout = `${formatRounds(current)} / ${leg.line}`;
+      if (!started && game.state === "pre") {
+        return { status: "pending", note: "Waiting on the bell", readout: `0.0 / ${leg.line}`, current: 0, line: leg.line };
+      }
+      const lockedOver = current > leg.line;
+      if (leg.side === "over") {
+        if (lockedOver) return { status: "won", note: `${readout} rds`, current, line: leg.line, progress: current / leg.line, readout };
+        if (final) {
+          return current === leg.line
+            ? { status: "push", note: readout, current, line: leg.line, progress: 1, readout }
+            : { status: "lost", note: readout, current, line: leg.line, progress: current / Math.max(leg.line, 0.1), readout };
+        }
+        return { status: "pending", note: readout, current, line: leg.line, progress: current / Math.max(leg.line, 0.1), readout };
+      }
+      if (lockedOver) return { status: "lost", note: `${readout} rds`, current, line: leg.line, progress: current / leg.line, readout };
+      if (final) {
+        return current === leg.line
+          ? { status: "push", note: readout, current, line: leg.line, progress: 1, readout }
+          : { status: "won", note: readout, current, line: leg.line, progress: current / Math.max(leg.line, 0.1), readout };
+      }
+      return { status: current >= leg.line - 0.5 ? "threat" : "leaning", note: readout, current, line: leg.line, progress: current / Math.max(leg.line, 0.1), readout };
+    }
     const total = game.home.score + game.away.score;
     const status = ouStatus(total, leg.line, leg.side, final);
     const needed = leg.side === "over" ? Math.max(0, Math.floor(leg.line - total) + 1) : undefined;
@@ -282,7 +330,38 @@ export function evaluateLeg(leg: BetLeg, game?: Game, detail?: GameDetail | null
     return { status: "pending", note: "Still the first", readout };
   }
 
+  if (leg.kind === "method") {
+    const pick = leg.method || (leg.period as BetLeg["method"]);
+    const label = pick === "ko" ? "KO/TKO" : pick === "submission" ? "Submission" : pick === "decision" ? "Decision" : "Method";
+    if (!final) {
+      const rds = formatRounds(elapsedRounds(game));
+      return { status: "pending", note: game.shortDetail || "In progress", readout: rds };
+    }
+    if (!game.fightMethod) return { status: "pending", note: "Waiting on the call", readout: "—" };
+    const hit = game.fightMethod === pick;
+    return {
+      status: hit ? "won" : "lost",
+      note: hit ? `By ${label}` : `By ${game.fightMethod === "ko" ? "KO/TKO" : game.fightMethod}`,
+      readout: game.fightMethod === "ko" ? "KO" : game.fightMethod === "submission" ? "SUB" : "DEC",
+    };
+  }
+
   if (leg.kind === "period_winner" && pair && leg.period) {
+    if (game.format === "fight") {
+      const n = periodCount(leg.period, game.sport);
+      const mine = pair.me.linescores[n - 1];
+      const theirs = pair.opp.linescores[n - 1];
+      const reached = (game.period ?? 0) >= n || (final && (game.period ?? 0) >= n);
+      if (mine == null && theirs == null) {
+        if (final && (game.period ?? 0) < n) return { status: "push", note: "Didn't reach", readout: "—" };
+        if (final) return { status: "pending", note: "No cards", readout: "—" };
+        return { status: "pending", note: reached ? "Waiting on cards" : `Thru R${game.period || 0}`, readout: "—" };
+      }
+      const readout = scoreReadout(mine ?? 0, theirs ?? 0);
+      if ((mine ?? 0) > (theirs ?? 0)) return { status: final || reached ? "won" : "leaning", note: `Rd ${n} ${readout}`, readout };
+      if ((mine ?? 0) < (theirs ?? 0)) return { status: final || reached ? "lost" : "threat", note: `Rd ${n} ${readout}`, readout };
+      return { status: "push", note: `Rd ${n} even`, readout };
+    }
     const n = periodCount(leg.period, game.sport);
     const isSecondHalf = /^(2H|2NDHALF)$/i.test(leg.period.replace(/\s+/g, ""));
     const mine = isSecondHalf
@@ -397,7 +476,13 @@ export function evaluateTicket(
 export function trackingLabel(leg: BetLeg) {
   if (leg.kind === "moneyline") return `${leg.teamAbbr ?? ""} lead`.trim();
   if (leg.kind === "spread") return `${leg.teamAbbr ?? ""} ${leg.line != null && leg.line > 0 ? "+" : ""}${leg.line ?? ""}`.trim();
-  if (leg.kind === "total") return `Total ${leg.side ?? ""}`.trim();
+  if (leg.kind === "total") return `${leg.side === "under" ? "U" : "O"} ${leg.line ?? ""}`.trim();
+  if (leg.kind === "method") {
+    if (leg.method === "ko") return "KO/TKO";
+    if (leg.method === "submission") return "Sub";
+    if (leg.method === "decision") return "Dec";
+    return "Method";
+  }
   if (leg.kind === "team_total") return `${leg.teamAbbr ?? ""} ${leg.side ?? ""}`.trim();
   if (leg.kind === "first_inning_draw") return "1st Inn";
   if (leg.kind === "period_winner") {
