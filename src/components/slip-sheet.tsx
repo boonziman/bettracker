@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { payout } from "@/lib/bets/odds";
 import { useBook } from "@/lib/bets/store";
 import type { BetKind, BetLeg } from "@/lib/bets/types";
-import { propCatalog } from "@/lib/espn/leagues";
+import { propCatalog, eventLabel } from "@/lib/espn/leagues";
 import { useGameDetail, useSlate } from "@/lib/espn/hooks";
 import type { Game } from "@/lib/espn/types";
 import { cn, formatMoney, fuzzyIncludes } from "@/lib/utils";
@@ -134,10 +134,10 @@ export function SlipSheet() {
 }
 
 function periodPresets(sport?: Game["sport"]) {
-  if (sport === "baseball") return ["F5", "1"];
-  if (sport === "basketball" || sport === "football") return ["1Q", "1H", "2H"];
+  if (sport === "baseball" || sport === "softball") return ["F5", "1"];
+  if (sport === "basketball" || sport === "football" || sport === "afl" || sport === "lacrosse") return ["1Q", "1H", "2H"];
   if (sport === "hockey") return ["1P", "2P", "1"];
-  if (sport === "soccer") return ["1H", "2H"];
+  if (sport === "soccer" || sport === "rugby") return ["1H", "2H"];
   return ["1H", "F5"];
 }
 
@@ -150,6 +150,7 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
   const [gameId, setGameId] = useState<string>(focusEventId || lastLegEvent || "");
   const [kind, setKind] = useState<BetKind>("moneyline");
   const [team, setTeam] = useState<"home" | "away">("away");
+  const [fieldAbbr, setFieldAbbr] = useState("");
   const [side, setSide] = useState<"over" | "under">("over");
   const [line, setLine] = useState("8.5");
   const [period, setPeriod] = useState("F5");
@@ -196,8 +197,13 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
 
   const submit = () => {
     if (!game) return;
-    const ev = `${game.away.abbr} @ ${game.home.abbr}`;
-    const sideTeam = team === "home" ? game.home : game.away;
+    const ev = eventLabel(game);
+    const fieldPick = game.format === "field" ? game.field?.find((p) => p.abbr === fieldAbbr) : undefined;
+    const sideTeam = fieldPick
+      ? { abbr: fieldPick.abbr, shortName: fieldPick.shortName, name: fieldPick.name }
+      : team === "home"
+        ? game.home
+        : game.away;
     const lineN = Number(line);
     let leg: Omit<BetLeg, "id"> | null = null;
     if (kind === "moneyline") {
@@ -206,7 +212,7 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
         leagueId: game.leagueId,
         eventId: game.id,
         eventLabel: ev,
-        selection: `${sideTeam.abbr} to win`,
+        selection: `${sideTeam.shortName ?? sideTeam.abbr} to win`,
         teamAbbr: sideTeam.abbr,
       };
     } else if (kind === "spread") {
@@ -302,7 +308,7 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
         <div className="mt-2 flex items-center justify-between rounded-md bg-elevated px-3 py-2 text-xs">
           <span>
             <span className="mr-2 text-subtle">{game.leagueShort}</span>
-            {game.away.abbr} @ {game.home.abbr}
+            {eventLabel(game)}
           </span>
           <span className="tabular text-subtle">{game.shortDetail}</span>
         </div>
@@ -326,8 +332,8 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
           >
             <span>
               <span className="mr-2 text-subtle">{g.leagueShort}</span>
-              {g.away.abbr} @ {g.home.abbr}
-              {g.state !== "pre" ? (
+              {eventLabel(g)}
+              {g.format !== "field" && g.state !== "pre" ? (
                 <span className="ml-2 tabular text-subtle">
                   {g.away.score}–{g.home.score}
                 </span>
@@ -342,7 +348,9 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
         <>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {KINDS.filter((k) => {
-              if (k.id === "first_inning_draw") return game.sport === "baseball";
+              if (k.id === "first_inning_draw") return game.sport === "baseball" || game.sport === "softball";
+              if (game.format === "fight" || game.format === "field") return k.id === "moneyline";
+              if (game.sport === "tennis") return k.id === "moneyline" || k.id === "spread" || k.id === "total";
               return true;
             }).map((k) => (
               <button
@@ -359,7 +367,9 @@ function AddLegForm({ onAdd }: { onAdd: (leg: Omit<BetLeg, "id">) => void }) {
             ))}
           </div>
 
-          {kind === "moneyline" || kind === "spread" || kind === "team_total" || kind === "period_winner" ? (
+          {kind === "moneyline" && game.format === "field" ? (
+            <FieldPick game={game} selected={fieldAbbr} onPick={setFieldAbbr} />
+          ) : kind === "moneyline" || kind === "spread" || kind === "team_total" || kind === "period_winner" ? (
             <TeamPick game={game} team={team} onChange={setTeam} />
           ) : null}
 
@@ -486,7 +496,7 @@ function TeamPick({
               team === t ? "bg-accent text-accent-fg" : "bg-elevated text-muted",
             )}
           >
-            {c.abbr}
+            {c.shortName}
             {game.state !== "pre" ? <span className="ml-1.5 tabular text-subtle">{c.score}</span> : null}
           </button>
         );
@@ -494,3 +504,37 @@ function TeamPick({
     </div>
   );
 }
+
+function FieldPick({
+  game,
+  selected,
+  onPick,
+}: {
+  game: Game;
+  selected: string;
+  onPick: (abbr: string) => void;
+}) {
+  const rows = game.field ?? [];
+  return (
+    <div className="mt-3 max-h-40 space-y-1 overflow-y-auto">
+      {rows.slice(0, 16).map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => onPick(p.abbr)}
+          className={cn(
+            "flex h-9 w-full items-center justify-between rounded-md px-2 text-xs",
+            selected === p.abbr ? "bg-accent text-accent-fg" : "bg-elevated text-muted",
+          )}
+        >
+          <span>
+            <span className="mr-2 tabular text-subtle">{p.position}</span>
+            {p.shortName}
+          </span>
+          <span className="tabular">{p.mark ?? p.score}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+

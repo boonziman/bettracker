@@ -4,6 +4,7 @@ import { GameCard, MiniGame } from "@/components/game-card";
 import { SportRail } from "@/components/sport-rail";
 import { TicketRow } from "@/components/ticket-desk";
 import { evaluateTicket } from "@/lib/bets/evaluate";
+import { leagueById } from "@/lib/espn/leagues";
 import { useBook } from "@/lib/bets/store";
 import { useSlate, useTicketDetails } from "@/lib/espn/hooks";
 import type { Game } from "@/lib/espn/types";
@@ -27,7 +28,10 @@ function SlatePage() {
   const visible = useMemo(() => {
     let list = games;
     if (filter === "live") list = games.filter((g) => g.state === "in");
-    else if (filter !== "all") list = games.filter((g) => g.leagueId === filter);
+    else if (filter.startsWith("family:")) {
+      const fam = filter.slice("family:".length);
+      list = games.filter((g) => leagueById(g.leagueId)?.family === fam);
+    } else if (filter !== "all") list = games.filter((g) => g.leagueId === filter);
     return list;
   }, [games, filter]);
 

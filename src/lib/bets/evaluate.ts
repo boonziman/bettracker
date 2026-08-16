@@ -6,11 +6,31 @@ import type { BetLeg, EvalStatus, LegEval, Ticket, TicketStatus } from "./types"
 function teamOf(game: Game, abbr?: string) {
   if (!abbr) return null;
   const a = abbr.toUpperCase();
-  const match = (name: string, short: string, ab: string) =>
-    ab.toUpperCase() === a ||
-    short.toUpperCase() === a ||
-    name.toUpperCase() === a ||
-    name.toUpperCase().includes(a);
+  const match = (name: string, short: string, ab: string) => {
+    const n = name.toUpperCase();
+    const s = short.toUpperCase();
+    const b = ab.toUpperCase();
+    return b === a || s === a || n === a || n.includes(a) || s.includes(a) || a.includes(b);
+  };
+  if (game.field?.length) {
+    const hit = game.field.find((p) => match(p.name, p.shortName, p.abbr));
+    if (hit) {
+      const me: Game["home"] = {
+        id: hit.id,
+        abbr: hit.abbr,
+        name: hit.name,
+        shortName: hit.shortName,
+        logo: hit.logo,
+        score: hit.position,
+        homeAway: "home",
+        winner: hit.winner || hit.position === 1,
+        linescores: [],
+        mark: hit.mark,
+      };
+      const opp = game.home.id === hit.id ? game.away : game.home;
+      return { me, opp };
+    }
+  }
   if (match(game.home.name, game.home.shortName, game.home.abbr)) {
     return { me: game.home, opp: game.away };
   }
@@ -171,6 +191,27 @@ export function evaluateLeg(leg: BetLeg, game?: Game, detail?: GameDetail | null
 
   if (leg.kind === "moneyline") {
     if (!pair) return { status: "pending", note: game.shortDetail };
+    if (game.format === "field") {
+      const pos = pair.me.score || 0;
+      const readout = pos ? `P${pos}` : "—";
+      if (final) {
+        return pair.me.winner || pos === 1
+          ? { status: "won", note: `Wins it · ${pair.me.mark ?? ""}`.trim(), readout }
+          : { status: "lost", note: readout, readout };
+      }
+      if (pos === 1) return { status: "leaning", note: pair.me.mark ?? "Leading", readout };
+      if (pos > 0 && pos <= 5) return { status: "pending", note: pair.me.mark ?? `P${pos}`, readout };
+      return { status: "threat", note: pair.me.mark ?? readout, readout };
+    }
+    if (game.format === "fight") {
+      const readout = pair.me.winner ? "W" : pair.opp.winner ? "L" : "—";
+      if (final) {
+        if (pair.me.winner) return { status: "won", note: `${pair.me.shortName} wins`, readout: "W" };
+        if (pair.opp.winner) return { status: "lost", note: `${pair.opp.shortName} wins`, readout: "L" };
+        return { status: "push", note: "No contest", readout };
+      }
+      return { status: "pending", note: game.shortDetail, readout };
+    }
     const readout = `${lead >= 0 ? "+" : ""}${lead}`;
     if (final) {
       if (my === opp) return { status: "push", note: "Final tie", readout };

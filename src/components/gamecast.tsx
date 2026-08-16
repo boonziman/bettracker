@@ -25,7 +25,7 @@ export function GamecastBoard({
   const league = leagueById(game.leagueId);
   const detail = "players" in game ? (game as GameDetail) : null;
   const sit = game.situation;
-  const baseballLive = live && game.sport === "baseball" && sit;
+  const baseballLive = live && (game.sport === "baseball" || game.sport === "softball") && sit;
 
   return (
     <section
@@ -39,8 +39,13 @@ export function GamecastBoard({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-2xs font-medium uppercase tracking-wide text-subtle">
               <span>
-                {game.away.abbr} @ {game.home.abbr}
+                {game.format === "fight"
+                  ? `${game.away.shortName} vs ${game.home.shortName}`
+                  : game.format === "field"
+                    ? game.shortName
+                    : `${game.away.abbr} @ ${game.home.abbr}`}
               </span>
+              {game.weightClass ? <span className="normal-case tracking-normal text-faint">{game.weightClass}</span> : null}
               {live ? (
                 <Badge tone="live" className="gap-1.5 normal-case">
                   <span className="live-dot size-1.5 rounded-pill bg-live" />
@@ -53,7 +58,9 @@ export function GamecastBoard({
             <span className="text-xs tabular text-muted">{game.shortDetail}</span>
           </div>
 
-          {baseballLive ? (
+          {game.format === "field" ? (
+            <FieldBoard game={game} />
+          ) : baseballLive ? (
             <div className="mt-4 flex items-center justify-between gap-4">
               <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2">
                 <TeamLine team={game.away} show />
@@ -71,10 +78,12 @@ export function GamecastBoard({
                 <CountDots label="O" filled={sit.outs ?? 0} total={3} tone="o" />
               </div>
             </div>
+          ) : game.format === "fight" ? (
+            <FightBoard game={game} live={live} />
           ) : (
             <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2">
-              <TeamLine team={game.away} show={live || game.completed} />
-              <TeamLine team={game.home} show={live || game.completed} />
+              <TeamLine team={game.away} show={live || game.completed} mark={game.sport === "tennis"} />
+              <TeamLine team={game.home} show={live || game.completed} mark={game.sport === "tennis"} />
             </div>
           )}
 
@@ -93,7 +102,7 @@ export function GamecastBoard({
             </p>
           ) : null}
 
-          {game.home.linescores.length > 0 ? <LineScore game={game} /> : null}
+          {game.format !== "field" && game.home.linescores.length > 0 ? <LineScore game={game} /> : null}
 
           {game.lastPlay ? (
             <p key={game.lastPlay} className="play-fade mt-3 line-clamp-2 text-xs text-subtle">
@@ -130,7 +139,15 @@ export function GamecastBoard({
   );
 }
 
-function TeamLine({ team, show }: { team: Game["home"]; show: boolean }) {
+function TeamLine({
+  team,
+  show,
+  mark,
+}: {
+  team: Game["home"];
+  show: boolean;
+  mark?: boolean;
+}) {
   return (
     <>
       <div className="flex min-w-0 items-center gap-3">
@@ -138,38 +155,99 @@ function TeamLine({ team, show }: { team: Game["home"]; show: boolean }) {
           <img src={team.logo} alt="" className="size-7 object-contain" crossOrigin="anonymous" />
         ) : null}
         <div className="min-w-0">
-          <p className="truncate text-base font-medium leading-tight">{team.abbr}</p>
+          <p className="truncate text-base font-medium leading-tight">{team.shortName || team.abbr}</p>
           {team.record ? <p className="text-2xs text-subtle">{team.record}</p> : null}
         </div>
       </div>
       <p className={cn("type-display text-3xl tabular leading-none", show ? "text-fg" : "text-subtle")}>
-        {show ? <PulseNum value={team.score} /> : "–"}
+        {show ? <PulseNum value={team.mark && mark ? team.mark : team.score} /> : "–"}
       </p>
     </>
   );
 }
 
+function FightBoard({ game, live }: { game: Game; live: boolean }) {
+  return (
+    <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3">
+      <Fighter team={game.away} />
+      <p className={cn("type-display text-2xl tabular leading-none", game.away.winner ? "text-win" : live || game.completed ? "text-fg" : "text-subtle")}>
+        {game.away.winner ? "W" : game.home.winner ? "L" : live || game.completed ? (game.away.score || "–") : "–"}
+      </p>
+      <Fighter team={game.home} />
+      <p className={cn("type-display text-2xl tabular leading-none", game.home.winner ? "text-win" : live || game.completed ? "text-fg" : "text-subtle")}>
+        {game.home.winner ? "W" : game.away.winner ? "L" : live || game.completed ? (game.home.score || "–") : "–"}
+      </p>
+    </div>
+  );
+}
+
+function Fighter({ team }: { team: Game["home"] }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      {team.logo ? (
+        <img src={team.logo} alt="" className="size-9 rounded-sm object-cover" crossOrigin="anonymous" />
+      ) : (
+        <span className="grid size-9 place-items-center rounded-sm bg-elevated text-2xs text-muted">
+          {team.abbr.slice(0, 2)}
+        </span>
+      )}
+      <div className="min-w-0">
+        <p className="truncate text-base font-medium leading-tight">{team.name}</p>
+        {team.record ? <p className="text-2xs text-subtle">{team.record}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function FieldBoard({ game }: { game: Game }) {
+  const rows = game.field ?? [];
+  if (!rows.length) {
+    return <p className="mt-4 text-sm text-muted">{game.shortDetail || "Field not out yet."}</p>;
+  }
+  return (
+    <ol className="mt-4 divide-y divide-line">
+      {rows.slice(0, 10).map((p) => (
+        <li key={p.id + p.position} className="flex items-center gap-3 py-1.5 text-sm">
+          <span className="w-6 tabular text-2xs text-subtle">{p.position}</span>
+          <span className="min-w-0 flex-1 truncate font-medium">{p.shortName}</span>
+          <span className="tabular text-muted">{p.mark ?? p.score}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function LineScore({ game }: { game: Game }) {
-  const sportMin = game.sport === "baseball" ? 9 : game.sport === "hockey" ? 3 : game.sport === "soccer" ? 2 : 4;
+  const sportMin =
+    game.sport === "baseball" || game.sport === "softball"
+      ? 9
+      : game.sport === "hockey"
+        ? 3
+        : game.sport === "soccer" || game.sport === "rugby"
+          ? 2
+          : game.sport === "tennis" || game.sport === "mma"
+            ? Math.max(game.home.linescores.length, game.away.linescores.length, 1)
+            : 4;
   const max = Math.min(12, Math.max(game.home.linescores.length, game.away.linescores.length, sportMin));
   if (!max) return null;
+  const totalLabel = game.sport === "tennis" ? "S" : game.sport === "mma" ? "Σ" : "R";
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full min-w-64 text-2xs tabular text-muted">
         <thead>
           <tr>
-            <th className="w-10 text-left font-medium" />
+            <th className="w-16 text-left font-medium" />
             {Array.from({ length: max }, (_, i) => (
               <th key={i} className="px-1 font-medium">
                 {i + 1}
               </th>
             ))}
-            <th className="px-1 text-fg">R</th>
+            <th className="px-1 text-fg">{totalLabel}</th>
           </tr>
         </thead>
         <tbody>
           {[game.away, game.home].map((t) => (
-            <tr key={t.abbr}>
+            <tr key={t.abbr + t.id}>
               <td className="py-0.5 font-medium text-fg">{t.abbr}</td>
               {Array.from({ length: max }, (_, i) => (
                 <td key={i} className="px-1 text-center">

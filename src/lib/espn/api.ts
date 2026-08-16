@@ -2,7 +2,8 @@ import { LEAGUES, leagueById, scoreboardUrl, summaryUrl, type LeagueDef } from "
 import { parseScoreboard, parseSummary } from "./parse";
 import type { Game, GameDetail } from "./types";
 
-const SCORE_TTL = 3000;
+const LIVE_TTL = 3000;
+const IDLE_TTL = 12000;
 const SUM_TTL = 2500;
 
 type CacheEntry<T> = { at: number; data: T; inflight?: Promise<T> };
@@ -35,6 +36,10 @@ async function cached<T>(
       return data;
     })
     .catch((err) => {
+      if (hit?.data !== undefined) {
+        map.set(key, { at: Date.now(), data: hit.data });
+        return hit.data;
+      }
       map.delete(key);
       throw err;
     });
@@ -43,12 +48,14 @@ async function cached<T>(
 }
 
 function usesDateParam(league: LeagueDef) {
-  return league.id === "mlb" || league.id === "wnba" || league.id === "nba";
+  return league.id === "mlb" || league.id === "wnba" || league.id === "nba" || league.id === "ncaab";
 }
 
 export async function loadLeagueScoreboard(league: LeagueDef): Promise<Game[]> {
   const key = league.id;
-  return cached(scoreCache, key, SCORE_TTL, async () => {
+  const prev = scoreCache.get(key)?.data;
+  const ttl = prev?.some((g) => g.state === "in") ? LIVE_TTL : IDLE_TTL;
+  return cached(scoreCache, key, ttl, async () => {
     const { todayKey } = await import("@/lib/utils");
     const url = scoreboardUrl(league, usesDateParam(league) ? todayKey() : undefined);
     const json = await getJson(url);
@@ -77,10 +84,17 @@ export async function loadSlate(leagueIds: string[]): Promise<Game[]> {
 export async function loadGameDetail(leagueId: string, eventId: string, fallback?: Game): Promise<GameDetail | null> {
   const league = leagueById(leagueId);
   if (!league) return null;
+  if (league.sport === "mma" || league.sport === "golf" || league.sport === "racing" || league.sport === "tennis") {
+    if (fallback) return { ...fallback, plays: [], players: [] };
+  }
   const key = `${leagueId}:${eventId}`;
   return cached(sumCache, key, SUM_TTL, async () => {
-    const json = await getJson(summaryUrl(league, eventId));
-    return parseSummary(json, league, fallback);
+    try {
+      const json = await getJson(summaryUrl(league, eventId));
+      return parseSummary(json, league, fallback);
+    } catch {
+      return fallback ? { ...fallback, plays: [], players: [] } : null;
+    }
   });
 }
 

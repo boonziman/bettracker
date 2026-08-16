@@ -2,6 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { WatchBoard } from "@/components/watch-board";
 import { useBook } from "@/lib/bets/store";
+import { eventLabel } from "@/lib/espn/leagues";
 import { useGameDetail, useSlate } from "@/lib/espn/hooks";
 
 export const Route = createFileRoute("/_app/watch/$leagueId/$eventId")({
@@ -29,7 +30,7 @@ function WatchPage() {
             type="button"
             onClick={() =>
               openDraft({
-                label: `${data.away.abbr} @ ${data.home.abbr}`,
+                label: eventLabel(data),
                 stake: 10,
                 odds: -110,
                 legs: [],

@@ -10,10 +10,11 @@ No Vercel. Tickets stay on the device (this browser).
 
 ## What you can do
 
-- Scan today’s slate across NFL, CFB, NBA, WNBA, MLB, NHL, EPL, La Liga, Serie A, Bundesliga, Ligue 1, MLS, UCL, NWSL, UFC, PGA, F1
-- Tap a line (ML / over / under) to drop it on the slip
+- Scan today’s slate across UFC and every other card ESPN carries — NFL, CFB, CFL, UFL, NBA, WNBA, G League, MLB, NHL, college hoops/baseball/softball/hockey, PFL, Bellator, ATP, WTA, PGA, LPGA, LIV, DP World, F1, NASCAR, IndyCar, the big soccer leagues and cups, rugby, AFL, and more
+- Tap Fight / Tennis / Golf · Motor to jump a family
+- Tap a line (ML / over / under) to drop it on the slip — fighters and field winners included
 - Build parlays and player props (Ks, points, yards, etc.)
-- Watch a game: score, baseball diamond + count, down & distance, play-by-play
+- Watch a game: score, baseball diamond + count, down & distance, fight card, golf/racing leaderboard
 - Live tickers on prop and total legs (`8 / 8.5`)
 - Auto status: covering / sweating / hit / miss
 - Check legs off by hand

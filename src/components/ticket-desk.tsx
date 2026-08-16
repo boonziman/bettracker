@@ -7,6 +7,7 @@ import { evaluateTicket, trackingLabel } from "@/lib/bets/evaluate";
 import { statusLabel, statusTone } from "@/lib/bets/status";
 import { useBook } from "@/lib/bets/store";
 import type { Ticket } from "@/lib/bets/types";
+import { eventLabel } from "@/lib/espn/leagues";
 import type { Game, GameDetail } from "@/lib/espn/types";
 import { cn, formatAmerican, formatMoney } from "@/lib/utils";
 
@@ -173,8 +174,10 @@ export function TicketRow({
         {firstGame && !liveGame ? (
           <p className="mt-3 text-xs text-muted">
             <span className="tabular font-medium text-fg">
-              {firstGame.away.abbr} {firstGame.state === "pre" ? "" : firstGame.away.score} @ {firstGame.home.abbr}{" "}
-              {firstGame.state === "pre" ? "" : firstGame.home.score}
+              {eventLabel(firstGame)}
+              {firstGame.state === "pre" || firstGame.format === "field"
+                ? ""
+                : ` ${firstGame.away.score}–${firstGame.home.score}`}
             </span>
             <span className="text-subtle"> · {firstGame.shortDetail}</span>
           </p>

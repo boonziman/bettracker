@@ -2,7 +2,7 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Shell } from "@/components/shell";
 import { SlipSheet } from "@/components/slip-sheet";
-import { seedFromSlate, useBook, useBookHydrated } from "@/lib/bets/store";
+import { seedFromSlate, ensureNewLeagues, useBook, useBookHydrated } from "@/lib/bets/store";
 import { useCloudSync } from "@/lib/bets/use-cloud-sync";
 import { useSlate, useTicketDetails } from "@/lib/espn/hooks";
 import type { Game } from "@/lib/espn/types";
@@ -23,6 +23,9 @@ function AppLayout() {
   const gameMap = new Map<string, Game>(games.map((g) => [g.id, g]));
 
   useCloudSync();
+  useEffect(() => {
+    if (hydrated) ensureNewLeagues();
+  }, [hydrated]);
   useEffect(() => {
     if (hydrated && games.length) seedFromSlate(games);
   }, [games, hydrated]);

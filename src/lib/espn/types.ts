@@ -1,6 +1,7 @@
 import type { SportFamily } from "./leagues";
 
 export type GameState = "pre" | "in" | "post";
+export type EventFormat = "match" | "fight" | "field";
 
 export type Competitor = {
   id: string;
@@ -13,6 +14,20 @@ export type Competitor = {
   record?: string;
   winner?: boolean;
   linescores: number[];
+  /** Golf to-par, racing laps, tennis games in a set — shown instead of raw score when set. */
+  mark?: string;
+};
+
+export type FieldEntry = {
+  id: string;
+  name: string;
+  shortName: string;
+  abbr: string;
+  logo?: string;
+  position: number;
+  score: number;
+  mark?: string;
+  winner?: boolean;
 };
 
 export type GameOdds = {
@@ -59,6 +74,7 @@ export type Game = {
   leagueId: string;
   leagueShort: string;
   sport: SportFamily;
+  format: EventFormat;
   name: string;
   shortName: string;
   date: string;
@@ -75,6 +91,9 @@ export type Game = {
   odds?: GameOdds;
   situation?: Situation;
   lastPlay?: string;
+  headline?: string;
+  weightClass?: string;
+  field?: FieldEntry[];
 };
 
 export type GameDetail = Game & {

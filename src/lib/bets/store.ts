@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { DEFAULT_LEAGUE_IDS } from "@/lib/espn/leagues";
+import { DEFAULT_LEAGUE_IDS, SHIPPED_V1, LEAGUES, eventLabel } from "@/lib/espn/leagues";
 import type { Game } from "@/lib/espn/types";
 import { uid } from "@/lib/utils";
 import { payout } from "./odds";
@@ -153,6 +153,13 @@ export function useBookHydrated() {
   return hydrated;
 }
 
+/** Turn on sports added after the user's book was first saved. */
+export function ensureNewLeagues() {
+  const { enabledLeagues, setEnabledLeagues } = useBook.getState();
+  const extras = LEAGUES.map((l) => l.id).filter((id) => !SHIPPED_V1.has(id) && !enabledLeagues.includes(id));
+  if (extras.length) setEnabledLeagues([...enabledLeagues, ...extras]);
+}
+
 export function seedFromSlate(games: Game[]) {
   const { tickets, seeded, addTicket, markSeeded } = useBook.getState();
   if (seeded || tickets.length) {
@@ -171,7 +178,7 @@ export function seedFromSlate(games: Game[]) {
     games.find((g) => g.sport === "baseball" && g.state === "in") ??
     games.find((g) => g.sport === "baseball") ??
     pool[0]!;
-  const ev = `${first.away.abbr} @ ${first.home.abbr}`;
+  const ev = eventLabel(first);
 
   if (first.sport === "baseball") {
     addTicket({
@@ -272,7 +279,7 @@ export function seedFromSlate(games: Game[]) {
           kind: "spread",
           leagueId: second.leagueId,
           eventId: second.id,
-          eventLabel: `${second.away.abbr} @ ${second.home.abbr}`,
+          eventLabel: eventLabel(second),
           selection: `${second.home.abbr} ${second.odds?.homeSpread ?? -1.5}`,
           teamAbbr: second.home.abbr,
           line: second.odds?.homeSpread ?? -1.5,
