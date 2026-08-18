@@ -170,14 +170,29 @@
   animation: score-pop 280ms var(--ease-out);
 }
 
-.play-fade {
-  animation: play-fade 320ms var(--ease-out);
+.diamond-base-on {
+  filter: drop-shadow(0 0 5px rgb(196 165 116 / 0.7));
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: base-on 280ms var(--ease-out);
+}
+
+@keyframes base-on {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .live-dot,
   .score-pop,
-  .play-fade {
+  .play-fade,
+  .diamond-base-on {
     animation: none;
   }
 }

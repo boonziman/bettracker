@@ -34,9 +34,9 @@ export function GamecastBoard({
         live ? "shadow-[var(--shadow-live)]" : "shadow-[var(--shadow-border)]",
       )}
     >
-      <div className={cn("px-2.5 py-1.5", compact && "px-2 py-1.5")}>
+      <div className={cn(compact ? "px-3 py-2.5" : "px-4 py-3")}>
         <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-subtle">
+          <div className="flex min-w-0 items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-subtle">
             <span className="truncate">
               {game.format === "fight"
                 ? `${game.away.shortName} vs ${game.home.shortName}`
@@ -54,26 +54,26 @@ export function GamecastBoard({
               <span>Final</span>
             ) : null}
           </div>
-          <span className="shrink-0 text-[10px] tabular text-muted">{game.shortDetail}</span>
+          <span className="shrink-0 text-2xs tabular text-muted">{game.shortDetail}</span>
         </div>
 
         {game.format === "field" ? (
           <FieldBoard game={game} />
         ) : baseballLive ? (
-          <div className="mt-1.5 grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
+          <div className="mt-3 grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5">
             <TeamLine team={game.away} show />
             <TeamLine team={game.home} show />
           </div>
         ) : game.format === "fight" ? (
           <FightBoard game={game} live={live} />
         ) : (
-          <div className="mt-1.5 grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
+          <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5">
             <TeamLine team={game.away} show={live || game.completed} mark={game.sport === "tennis"} />
             <TeamLine team={game.home} show={live || game.completed} mark={game.sport === "tennis"} />
           </div>
         )}
 
-        {baseballLive ? <PitchStage sit={sit} pitches={detail?.pitches ?? []} game={game} compact /> : null}
+        {baseballLive ? <PitchStage sit={sit} pitches={detail?.pitches ?? []} game={game} compact={compact} /> : null}
 
         {live && game.sport === "basketball" ? (
           <CourtStage
@@ -86,7 +86,7 @@ export function GamecastBoard({
         ) : null}
 
         {live && game.sport === "football" && sit?.downDistanceText ? (
-          <p className="mt-1.5 text-[11px] text-muted">
+          <p className="mt-3 text-xs text-muted">
             {sit.possessionAbbr ? <span className="mr-1.5 font-medium text-fg">{sit.possessionAbbr}</span> : null}
             {sit.downDistanceText}
           </p>
@@ -97,17 +97,17 @@ export function GamecastBoard({
         ) : null}
 
         {game.lastPlay && game.sport !== "basketball" && !baseballLive ? (
-          <p key={game.lastPlay} className="play-fade mt-1.5 line-clamp-2 text-[10px] text-subtle">
+          <p key={game.lastPlay} className="play-fade mt-3 line-clamp-2 text-xs text-subtle">
             {game.lastPlay}
           </p>
         ) : null}
 
-        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           {!hideWatchLink ? (
             <Link
               to="/watch/$leagueId/$eventId"
               params={{ leagueId: game.leagueId, eventId: game.id }}
-              className="text-[10px] text-lean hover:text-fg"
+              className="text-xs text-lean hover:text-fg"
             >
               Gamecast →
             </Link>
@@ -117,7 +117,7 @@ export function GamecastBoard({
               href={gamecastHref(league, game.id)}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-[10px] text-subtle hover:text-muted"
+              className="inline-flex items-center gap-1 text-xs text-subtle hover:text-muted"
             >
               ESPN <ExternalLink className="size-3" />
             </a>
@@ -286,7 +286,7 @@ function TrackingRail({
   legs: BetLeg[];
 }) {
   return (
-    <aside className="border-t border-line px-2 py-1.5">
+    <aside className="border-t border-line px-3 py-2.5">
       <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
         {legs.map((leg) => {
           const ev = evaluateLeg(leg, game, detail);

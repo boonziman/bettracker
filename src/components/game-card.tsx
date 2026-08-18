@@ -46,13 +46,14 @@ export function GameCard({ game }: { game: Game }) {
         )}
 
         {live && (game.sport === "baseball" || game.sport === "softball") && game.situation ? (
-          <div className="mt-3 flex items-center justify-between">
+          <div className="mt-3 flex items-center justify-between gap-4">
             <Diamond
+              size="sm"
               onFirst={game.situation.onFirst}
               onSecond={game.situation.onSecond}
               onThird={game.situation.onThird}
             />
-            <div>
+            <div className="flex flex-col items-end gap-1">
               <CountDots label="B" filled={game.situation.balls ?? 0} total={4} tone="b" />
               <CountDots label="S" filled={game.situation.strikes ?? 0} total={3} tone="s" />
               <CountDots label="O" filled={game.situation.outs ?? 0} total={3} tone="o" />

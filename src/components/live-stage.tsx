@@ -1,4 +1,4 @@
-import { Diamond } from "@/components/diamond";
+import { DiamondBoard } from "@/components/diamond";
 import type { CourtMark, Game, GameDetail, GamePlay, Pitch, PlayerLine, Situation } from "@/lib/espn/types";
 import { cn } from "@/lib/utils";
 
@@ -28,8 +28,8 @@ export function PitchStage({
   const batterLogo = teamLogo(game, sit.batterTeamId, "bat");
 
   return (
-    <div className="mt-2 overflow-hidden rounded-md bg-elevated/70">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-2.5 pt-2">
+    <div className="mt-3 overflow-hidden rounded-md bg-elevated/70">
+      <div className={cn("grid grid-cols-[1fr_auto_1fr] items-center gap-3", compact ? "px-3 pt-3" : "px-4 pt-4")}>
         <SideCard
           kicker="Pitcher"
           name={pitcherName}
@@ -38,7 +38,7 @@ export function PitchStage({
           logo={pitcherLogo}
           align="left"
         />
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <Headshot src={pitcherShot} name={pitcherName} />
           <span className="text-2xs uppercase tracking-widest text-faint">vs</span>
           <Headshot src={batterShot} name={batterName} />
@@ -53,34 +53,34 @@ export function PitchStage({
         />
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-3 px-2.5 text-2xs tabular text-subtle">
-        {sit.pitchCount ? (
-          <span>
-            Pitch count <span className="font-medium text-fg">{sit.pitchCount}</span>
-          </span>
-        ) : null}
-        {sit.onDeck ? (
-          <span>
-            On deck <span className="font-medium text-fg">{sit.onDeck}</span>
-          </span>
-        ) : null}
+      {(sit.pitchCount || sit.onDeck) && (
+        <div className={cn("mt-2 flex flex-wrap items-center justify-center gap-x-4 text-2xs tabular text-subtle", compact ? "px-3" : "px-4")}>
+          {sit.pitchCount ? (
+            <span>
+              Pitch <span className="font-medium text-fg">{sit.pitchCount}</span>
+            </span>
+          ) : null}
+          {sit.onDeck ? (
+            <span>
+              On deck <span className="font-medium text-fg">{sit.onDeck}</span>
+            </span>
+          ) : null}
+        </div>
+      )}
+
+      <div className={cn("border-t border-line", compact ? "mt-3 px-3 py-3" : "mt-4 px-4 py-4")}>
+        <DiamondBoard sit={sit} size={compact ? "md" : "lg"} />
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center justify-center gap-3 px-2.5 text-2xs">
-        <CountRow label="Balls" filled={sit.balls ?? 0} total={4} on="bg-fg" />
-        <CountRow label="Strikes" filled={sit.strikes ?? 0} total={3} on="bg-lose" />
-        <CountRow label="Outs" filled={sit.outs ?? 0} total={3} on="bg-lose" />
-      </div>
-
-      <div className="mt-1 grid items-stretch gap-0 border-t border-line grid-cols-1 sm:grid-cols-[1fr_7.5rem]">
-        <div className="px-2 py-1.5">
+      <div className="grid items-stretch gap-0 border-t border-line grid-cols-1 sm:grid-cols-[1fr_8rem]">
+        <div className={cn(compact ? "px-3 py-2" : "px-4 py-3")}>
           <StrikeZone pitches={dots} compact={compact} />
         </div>
         <ol className="border-t border-line sm:border-t-0 sm:border-l">
           {list.length ? (
             list.map((p) => (
-              <li key={p.id} className="flex items-center gap-1.5 border-b border-line px-2 py-1 last:border-b-0">
-                <span className={cn("grid size-4 shrink-0 place-items-center rounded-full text-2xs font-medium", chip(p.outcome))}>
+              <li key={p.id} className="flex items-center gap-2 border-b border-line px-3 py-1.5 last:border-b-0">
+                <span className={cn("grid size-5 shrink-0 place-items-center rounded-full text-2xs font-medium", chip(p.outcome))}>
                   {p.n}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -93,21 +93,9 @@ export function PitchStage({
               </li>
             ))
           ) : (
-            <li className="px-2 py-3 text-2xs text-faint">Waiting on the next pitch</li>
+            <li className="px-3 py-4 text-2xs text-faint">Waiting on the next pitch</li>
           )}
         </ol>
-      </div>
-
-      <div className="flex items-center gap-2 border-t border-line px-2.5 py-1.5">
-        <Diamond className="size-6" onFirst={sit.onFirst} onSecond={sit.onSecond} onThird={sit.onThird} />
-        <p className="min-w-0 text-2xs text-subtle">
-          <span className="mr-1.5 uppercase tracking-wide text-faint">On base</span>
-          <Base name="1B" on={sit.onFirst} val={sit.runnerFirst} />
-          <span className="mx-1 text-faint">·</span>
-          <Base name="2B" on={sit.onSecond} val={sit.runnerSecond} />
-          <span className="mx-1 text-faint">·</span>
-          <Base name="3B" on={sit.onThird} val={sit.runnerThird} />
-        </p>
       </div>
     </div>
   );
@@ -169,11 +157,11 @@ function SideCard({
 }) {
   return (
     <div className={cn("min-w-0", align === "right" && "text-right")}>
-      <div className={cn("flex items-center gap-1", align === "right" && "flex-row-reverse")}>
+      <div className={cn("flex items-center gap-1.5", align === "right" && "flex-row-reverse")}>
         {logo ? <img src={logo} alt="" className="size-3.5 object-contain" crossOrigin="anonymous" /> : null}
         <p className="text-2xs font-medium uppercase tracking-widest text-subtle">{kicker}</p>
       </div>
-      <p className="truncate text-xs font-medium leading-tight text-lean">
+      <p className="truncate text-sm font-medium leading-tight text-lean">
         {name} {tag ? <span className="font-normal text-subtle">{tag}</span> : null}
       </p>
       {line ? <p className="truncate text-2xs tabular text-subtle">{line}</p> : null}
@@ -183,36 +171,14 @@ function SideCard({
 
 function Headshot({ src, name }: { src?: string; name: string }) {
   return src ? (
-    <img src={src} alt="" className="size-9 shrink-0 rounded-full object-cover ring-1 ring-line-strong" crossOrigin="anonymous" />
+    <img src={src} alt="" className="size-10 shrink-0 rounded-full object-cover ring-1 ring-line-strong" crossOrigin="anonymous" />
   ) : (
-    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-inset text-xs text-muted ring-1 ring-line">
+    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-inset text-xs text-muted ring-1 ring-line">
       {name.slice(0, 1)}
     </span>
   );
 }
 
-function Base({ name, on, val }: { name: string; on?: boolean; val?: string }) {
-  return (
-    <span>
-      {name}: <span className={on ? "text-fg" : "text-faint"}>{on ? val || "on" : "empty"}</span>
-    </span>
-  );
-}
-
-function CountRow({ label, filled, total, on }: { label: string; filled: number; total: number; on: string }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span className="uppercase tracking-wide text-subtle">{label}</span>
-      <span className="inline-flex gap-0.5">
-        {Array.from({ length: total }, (_, i) => (
-          <span key={i} className={cn("size-1.5 rounded-full", i < filled ? on : "bg-faint/40")} />
-        ))}
-      </span>
-    </span>
-  );
-}
-
-/** ESPN pitch coords cluster ~70–180 x, 100–210 y. Catcher's view, y down. */
 function StrikeZone({ pitches, compact }: { pitches: Pitch[]; compact?: boolean }) {
   const zx = 78;
   const zy = 118;
@@ -221,7 +187,7 @@ function StrikeZone({ pitches, compact }: { pitches: Pitch[]; compact?: boolean 
   return (
     <svg
       viewBox="40 70 200 175"
-      className={cn("w-full justify-self-center text-fg", compact ? "h-28" : "h-32")}
+      className={cn("w-full justify-self-center text-fg", compact ? "h-32" : "h-40")}
     >
       <rect x="40" y="70" width="200" height="175" fill="transparent" />
       <path d="M105 218 L141 218 L154 206 L123 194 L92 206 Z" fill="currentColor" opacity="0.1" />
@@ -320,9 +286,9 @@ export function CourtStage({
     .slice(-4)
     .reverse();
   return (
-    <div className="mt-2 overflow-hidden rounded-md bg-elevated/70">
+    <div className="mt-3 overflow-hidden rounded-md bg-elevated/70">
       {game ? (
-        <div className="flex items-baseline justify-between gap-2 px-2.5 pt-2 text-2xs">
+        <div className="flex items-baseline justify-between gap-2 px-4 pt-3 text-2xs">
           <span className="tabular text-muted">{game.shortDetail}</span>
           <span className="tabular font-medium">
             {game.away.abbr} {game.away.score} · {game.home.abbr} {game.home.score}
@@ -330,7 +296,7 @@ export function CourtStage({
         </div>
       ) : null}
       <div className="grid items-stretch grid-cols-1 sm:grid-cols-[1fr_8.5rem]">
-        <div className="px-2 py-1.5">
+        <div className="px-3 py-2">
           <BasketCourt marks={marks} tall={compact ? 88 : 110} />
           <p className="mt-1 flex items-center gap-2 text-2xs text-subtle">
             <span className="inline-flex items-center gap-1">
@@ -344,7 +310,7 @@ export function CourtStage({
         <ol className="border-t border-line sm:border-t-0 sm:border-l">
           {recent.length ? (
             recent.map((p) => (
-              <li key={p.id} className="border-b border-line px-2 py-1 last:border-b-0">
+              <li key={p.id} className="border-b border-line px-3 py-1.5 last:border-b-0">
                 <p className="line-clamp-2 text-2xs leading-snug text-muted">
                   {p.clock || p.period ? (
                     <span className="mr-1 tabular text-subtle">{[p.period, p.clock].filter(Boolean).join(" ")}</span>
@@ -354,9 +320,9 @@ export function CourtStage({
               </li>
             ))
           ) : lastPlay ? (
-            <li className="px-2 py-1.5 text-2xs text-muted">{lastPlay}</li>
+            <li className="px-3 py-2 text-2xs text-muted">{lastPlay}</li>
           ) : (
-            <li className="px-2 py-3 text-2xs text-faint">Waiting on the next trip</li>
+            <li className="px-3 py-4 text-2xs text-faint">Waiting on the next trip</li>
           )}
         </ol>
       </div>
