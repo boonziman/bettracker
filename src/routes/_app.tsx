@@ -24,12 +24,20 @@ function AppLayout() {
 
   useCloudSync();
   useEffect(() => {
-    if (hydrated) ensureNewLeagues();
+    if (hydrated) {
+      ensureNewLeagues();
+      void import("@/lib/accounts/vault").then(({ ensureLocalMaster }) => ensureLocalMaster());
+      if (import.meta.env.VITE_SPA !== "1") {
+        void import("@/lib/bets/desk")
+          .then(({ ensureMasterAccount }) => ensureMasterAccount())
+          .catch(() => {});
+      }
+    }
   }, [hydrated]);
   useEffect(() => {
     if (hydrated && games.length) {
       seedFromSlate(games);
-      ensureTonightTickets();
+      ensureTonightTickets(games);
     }
   }, [games, hydrated]);
 

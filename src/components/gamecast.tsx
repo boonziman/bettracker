@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
+import { CourtStage, PitchStage } from "@/components/live-stage";
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { CountDots, Diamond } from "@/components/diamond";
 import { PulseNum } from "@/components/pulse";
 import { evaluateLeg, trackingLabel, elapsedRounds, formatRounds } from "@/lib/bets/evaluate";
 import { statusLabel, statusTone } from "@/lib/bets/status";
@@ -30,111 +30,102 @@ export function GamecastBoard({
   return (
     <section
       className={cn(
-        "rounded-xl bg-surface p-1",
+        "rounded-md bg-surface",
         live ? "shadow-[var(--shadow-live)]" : "shadow-[var(--shadow-border)]",
       )}
     >
-      <div className={cn("grid gap-0", legs.length ? "lg:grid-cols-[1fr_13.5rem]" : "")}>
-        <div className={cn("p-4", compact && "p-3.5")}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-2xs font-medium uppercase tracking-wide text-subtle">
-              <span>
-                {game.format === "fight"
-                  ? `${game.away.shortName} vs ${game.home.shortName}`
-                  : game.format === "field"
-                    ? game.shortName
-                    : `${game.away.abbr} @ ${game.home.abbr}`}
-              </span>
-              {game.weightClass ? <span className="normal-case tracking-normal text-faint">{game.weightClass}</span> : null}
-              {live ? (
-                <Badge tone="live" className="gap-1.5 normal-case">
-                  <span className="live-dot size-1.5 rounded-pill bg-live" />
-                  Live
-                </Badge>
-              ) : game.state === "post" ? (
-                <span>Final</span>
-              ) : null}
-            </div>
-            <span className="text-xs tabular text-muted">{game.shortDetail}</span>
-          </div>
-
-          {game.format === "field" ? (
-            <FieldBoard game={game} />
-          ) : baseballLive ? (
-            <div className="mt-4 flex items-center justify-between gap-4">
-              <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2">
-                <TeamLine team={game.away} show />
-                <TeamLine team={game.home} show />
-              </div>
-              <Diamond
-                className="size-14"
-                onFirst={sit.onFirst}
-                onSecond={sit.onSecond}
-                onThird={sit.onThird}
-              />
-              <div className="space-y-1">
-                <CountDots label="B" filled={sit.balls ?? 0} total={4} tone="b" />
-                <CountDots label="S" filled={sit.strikes ?? 0} total={3} tone="s" />
-                <CountDots label="O" filled={sit.outs ?? 0} total={3} tone="o" />
-              </div>
-            </div>
-          ) : game.format === "fight" ? (
-            <FightBoard game={game} live={live} />
-          ) : (
-            <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2">
-              <TeamLine team={game.away} show={live || game.completed} mark={game.sport === "tennis"} />
-              <TeamLine team={game.home} show={live || game.completed} mark={game.sport === "tennis"} />
-            </div>
-          )}
-
-          {baseballLive && (sit.batter || sit.pitcher) && !compact ? (
-            <p className="mt-3 text-2xs text-subtle">
-              {sit.pitcher ? <span>P {sit.pitcher}</span> : null}
-              {sit.pitcher && sit.batter ? <span className="mx-2 text-faint">·</span> : null}
-              {sit.batter ? <span>AB {sit.batter}</span> : null}
-            </p>
-          ) : null}
-
-          {live && game.sport === "football" && sit?.downDistanceText ? (
-            <p className="mt-3 text-sm text-muted">
-              {sit.possessionAbbr ? <span className="mr-2 font-medium text-fg">{sit.possessionAbbr}</span> : null}
-              {sit.downDistanceText}
-            </p>
-          ) : null}
-
-          {game.format !== "field" && game.home.linescores.length > 0 ? <LineScore game={game} /> : null}
-
-          {game.lastPlay ? (
-            <p key={game.lastPlay} className="play-fade mt-3 line-clamp-2 text-xs text-subtle">
-              {game.lastPlay}
-            </p>
-          ) : null}
-
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            {!hideWatchLink ? (
-              <Link
-                to="/watch/$leagueId/$eventId"
-                params={{ leagueId: game.leagueId, eventId: game.id }}
-                className="text-xs text-lean hover:text-fg"
-              >
-                Gamecast →
-              </Link>
-            ) : null}
-            {league ? (
-              <a
-                href={gamecastHref(league, game.id)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-2xs text-subtle hover:text-muted"
-              >
-                ESPN <ExternalLink className="size-3" />
-              </a>
+      <div className={cn("px-2.5 py-1.5", compact && "px-2 py-1.5")}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-subtle">
+            <span className="truncate">
+              {game.format === "fight"
+                ? `${game.away.shortName} vs ${game.home.shortName}`
+                : game.format === "field"
+                  ? game.shortName
+                  : `${game.away.abbr} @ ${game.home.abbr}`}
+            </span>
+            {game.weightClass ? <span className="normal-case tracking-normal text-faint">{game.weightClass}</span> : null}
+            {live ? (
+              <Badge tone="live" className="gap-1 normal-case">
+                <span className="live-dot size-1.5 rounded-pill bg-live" />
+                Live
+              </Badge>
+            ) : game.state === "post" ? (
+              <span>Final</span>
             ) : null}
           </div>
+          <span className="shrink-0 text-[10px] tabular text-muted">{game.shortDetail}</span>
         </div>
 
-        {legs.length > 0 ? <TrackingRail game={game} detail={detail} legs={legs} /> : null}
+        {game.format === "field" ? (
+          <FieldBoard game={game} />
+        ) : baseballLive ? (
+          <div className="mt-1.5 grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
+            <TeamLine team={game.away} show />
+            <TeamLine team={game.home} show />
+          </div>
+        ) : game.format === "fight" ? (
+          <FightBoard game={game} live={live} />
+        ) : (
+          <div className="mt-1.5 grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
+            <TeamLine team={game.away} show={live || game.completed} mark={game.sport === "tennis"} />
+            <TeamLine team={game.home} show={live || game.completed} mark={game.sport === "tennis"} />
+          </div>
+        )}
+
+        {baseballLive ? <PitchStage sit={sit} pitches={detail?.pitches ?? []} game={game} compact /> : null}
+
+        {live && game.sport === "basketball" ? (
+          <CourtStage
+            marks={detail?.courtMarks ?? []}
+            lastPlay={game.lastPlay}
+            plays={detail?.plays}
+            game={game}
+            compact
+          />
+        ) : null}
+
+        {live && game.sport === "football" && sit?.downDistanceText ? (
+          <p className="mt-1.5 text-[11px] text-muted">
+            {sit.possessionAbbr ? <span className="mr-1.5 font-medium text-fg">{sit.possessionAbbr}</span> : null}
+            {sit.downDistanceText}
+          </p>
+        ) : null}
+
+        {game.format !== "field" && game.home.linescores.length > 0 && !baseballLive && game.sport !== "basketball" ? (
+          <LineScore game={game} />
+        ) : null}
+
+        {game.lastPlay && game.sport !== "basketball" && !baseballLive ? (
+          <p key={game.lastPlay} className="play-fade mt-1.5 line-clamp-2 text-[10px] text-subtle">
+            {game.lastPlay}
+          </p>
+        ) : null}
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          {!hideWatchLink ? (
+            <Link
+              to="/watch/$leagueId/$eventId"
+              params={{ leagueId: game.leagueId, eventId: game.id }}
+              className="text-[10px] text-lean hover:text-fg"
+            >
+              Gamecast →
+            </Link>
+          ) : null}
+          {league ? (
+            <a
+              href={gamecastHref(league, game.id)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[10px] text-subtle hover:text-muted"
+            >
+              ESPN <ExternalLink className="size-3" />
+            </a>
+          ) : null}
+        </div>
       </div>
+
+      {legs.length > 0 ? <TrackingRail game={game} detail={detail} legs={legs} /> : null}
     </section>
   );
 }
@@ -150,16 +141,16 @@ function TeamLine({
 }) {
   return (
     <>
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 items-center gap-2">
         {team.logo ? (
-          <img src={team.logo} alt="" className="size-7 object-contain" crossOrigin="anonymous" />
+          <img src={team.logo} alt="" className="size-5 object-contain" crossOrigin="anonymous" />
         ) : null}
         <div className="min-w-0">
-          <p className="truncate text-base font-medium leading-tight">{team.shortName || team.abbr}</p>
+          <p className="truncate text-sm font-medium leading-tight">{team.shortName || team.abbr}</p>
           {team.record ? <p className="text-2xs text-subtle">{team.record}</p> : null}
         </div>
       </div>
-      <p className={cn("type-display text-3xl tabular leading-none", show ? "text-fg" : "text-subtle")}>
+      <p className={cn("type-display text-2xl tabular leading-none", show ? "text-fg" : "text-subtle")}>
         {show ? <PulseNum value={team.mark && mark ? team.mark : team.score} /> : "–"}
       </p>
     </>
@@ -185,8 +176,8 @@ function FightBoard({ game, live }: { game: Game; live: boolean }) {
         ? `${game.scheduledRounds} rounds`
         : "";
   return (
-    <div className="mt-4">
-      <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3">
+    <div className="mt-2">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2">
         <Fighter team={game.away} />
         <p className={cn("type-display text-2xl tabular leading-none", game.away.winner ? "text-win" : live || game.completed ? "text-fg" : "text-subtle")}>
           {game.away.winner ? "W" : game.home.winner ? "L" : live || game.completed ? (game.away.score || "–") : "–"}
@@ -196,7 +187,7 @@ function FightBoard({ game, live }: { game: Game; live: boolean }) {
           {game.home.winner ? "W" : game.away.winner ? "L" : live || game.completed ? (game.home.score || "–") : "–"}
         </p>
       </div>
-      {roundLabel ? <p className="mt-3 text-xs tabular text-muted">{roundLabel}</p> : null}
+      {roundLabel ? <p className="mt-2 text-2xs tabular text-muted">{roundLabel}</p> : null}
     </div>
   );
 }
@@ -225,9 +216,9 @@ function FieldBoard({ game }: { game: Game }) {
     return <p className="mt-4 text-sm text-muted">{game.shortDetail || "Field not out yet."}</p>;
   }
   return (
-    <ol className="mt-4 divide-y divide-line">
-      {rows.slice(0, 10).map((p) => (
-        <li key={p.id + p.position} className="flex items-center gap-3 py-1.5 text-sm">
+    <ol className="mt-2 divide-y divide-line">
+      {rows.slice(0, 8).map((p) => (
+        <li key={p.id + p.position} className="flex items-center gap-2 py-1 text-xs">
           <span className="w-6 tabular text-2xs text-subtle">{p.position}</span>
           <span className="min-w-0 flex-1 truncate font-medium">{p.shortName}</span>
           <span className="tabular text-muted">{p.mark ?? p.score}</span>
@@ -252,8 +243,8 @@ function LineScore({ game }: { game: Game }) {
   if (!max) return null;
   const totalLabel = game.sport === "tennis" ? "S" : game.sport === "mma" ? "Σ" : "R";
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-64 text-2xs tabular text-muted">
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full min-w-56 text-2xs tabular text-muted">
         <thead>
           <tr>
             <th className="w-16 text-left font-medium" />
@@ -295,27 +286,35 @@ function TrackingRail({
   legs: BetLeg[];
 }) {
   return (
-    <aside className="border-t border-line p-4 lg:border-t-0 lg:border-l">
-      <p className="text-2xs font-medium uppercase tracking-widest text-subtle">Tracking</p>
-      <ul className="mt-3 space-y-3">
+    <aside className="border-t border-line px-2 py-1.5">
+      <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
         {legs.map((leg) => {
           const ev = evaluateLeg(leg, game, detail);
           return (
-            <li key={leg.id}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="min-w-0 truncate text-xs text-muted">{trackingLabel(leg)}</span>
-                <PulseNum value={ev.readout ?? "—"} className={cn("text-sm font-medium", toneText(ev.status))} />
-              </div>
+            <li key={leg.id} className="flex items-center gap-2 rounded-sm bg-inset/80 px-2 py-1">
+              <span className="min-w-0 flex-1 truncate text-2xs text-muted">{trackingLabel(leg)}</span>
+              <PulseNum value={ev.readout ?? "—"} className={cn("shrink-0 text-2xs font-medium tabular", toneText(ev.status))} />
               {ev.line != null && ev.current != null ? (
-                <StatBar current={ev.current} line={ev.line} status={ev.status} needed={ev.needed} extra={ev.extra} />
-              ) : (
-                <p className="mt-0.5 text-2xs text-subtle">{ev.note}</p>
-              )}
+                <span className="hidden w-16 shrink-0 sm:block">
+                  <MiniBar current={ev.current} line={ev.line} status={ev.status} />
+                </span>
+              ) : null}
             </li>
           );
         })}
       </ul>
     </aside>
+  );
+}
+
+function MiniBar({ current, line, status }: { current: number; line: number; status: string }) {
+  const pct = Math.max(4, Math.min(100, (current / Math.max(line, 0.01)) * 100));
+  const bar =
+    status === "lost" ? "bg-lose" : status === "won" ? "bg-win" : status === "threat" ? "bg-threat" : "bg-lean";
+  return (
+    <div className="h-1 overflow-hidden rounded-pill bg-elevated">
+      <div className={cn("h-full rounded-pill", bar)} style={{ width: `${pct}%` }} />
+    </div>
   );
 }
 
@@ -342,7 +341,7 @@ export function StatBar({
           ? "bg-threat"
           : "bg-lean";
   return (
-    <div className="mt-1.5">
+    <div className="mt-1">
       <div className="h-1 overflow-hidden rounded-pill bg-inset">
         <div
           className={cn("h-full rounded-pill transition-[width] duration-300 ease-[var(--ease-out)]", bar)}

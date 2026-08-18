@@ -14,7 +14,6 @@ export type Competitor = {
   record?: string;
   winner?: boolean;
   linescores: number[];
-  /** Golf to-par, racing laps, tennis games in a set — shown instead of raw score when set. */
   mark?: string;
 };
 
@@ -44,6 +43,29 @@ export type GameOdds = {
   underOdds?: number;
 };
 
+export type PitchOutcome = "ball" | "strike" | "foul" | "inplay";
+
+export type Pitch = {
+  id: string;
+  n: number;
+  result: string;
+  type?: string;
+  mph?: number;
+  x?: number;
+  y?: number;
+  outcome: PitchOutcome;
+};
+
+export type CourtMark = {
+  id: string;
+  x: number;
+  y: number;
+  made?: boolean;
+  home?: boolean;
+  text?: string;
+  scoring?: boolean;
+};
+
 export type Situation = {
   down?: number;
   distance?: number;
@@ -56,8 +78,24 @@ export type Situation = {
   onFirst?: boolean;
   onSecond?: boolean;
   onThird?: boolean;
+  runnerFirst?: string;
+  runnerSecond?: string;
+  runnerThird?: string;
   batter?: string;
   pitcher?: string;
+  batterId?: string;
+  pitcherId?: string;
+  batterHeadshot?: string;
+  pitcherHeadshot?: string;
+  batterLine?: string;
+  pitcherLine?: string;
+  batterHand?: string;
+  pitcherHand?: string;
+  batterPos?: string;
+  onDeck?: string;
+  pitchCount?: number;
+  batterTeamId?: string;
+  pitcherTeamId?: string;
 };
 
 export type PlayerLine = {
@@ -67,6 +105,19 @@ export type PlayerLine = {
   teamAbbr?: string;
   group: string;
   stats: Record<string, string>;
+  headshot?: string;
+};
+
+export type GamePlay = {
+  id: string;
+  text: string;
+  period?: string;
+  clock?: string;
+  x?: number;
+  y?: number;
+  shooting?: boolean;
+  scoring?: boolean;
+  home?: boolean;
 };
 
 export type Game = {
@@ -94,15 +145,15 @@ export type Game = {
   headline?: string;
   weightClass?: string;
   field?: FieldEntry[];
-  /** UFC/PFL scheduled length (3 or 5). */
   scheduledRounds?: number;
-  /** Elapsed seconds in the current round (ESPN status.clock). */
   clockSeconds?: number;
   fightMethod?: "ko" | "submission" | "decision";
 };
 
 export type GameDetail = Game & {
-  plays: { id: string; text: string; period?: string; clock?: string }[];
+  plays: GamePlay[];
   players: PlayerLine[];
+  pitches?: Pitch[];
+  courtMarks?: CourtMark[];
   notes?: string;
 };

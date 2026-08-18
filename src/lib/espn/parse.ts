@@ -6,7 +6,10 @@ import type {
   Game,
   GameDetail,
   GameOdds,
+  GamePlay,
   GameState,
+  Pitch,
+  PitchOutcome,
   PlayerLine,
   Situation,
 } from "./types";
@@ -147,28 +150,82 @@ function parseSituation(comp: Json, sport: LeagueDef["sport"]): Situation | unde
   const sit = asObj(comp.situation);
   if (!Object.keys(sit).length) return undefined;
   const last = asObj(sit.lastPlay);
-  const batter = asObj(sit.batter);
-  const pitcher = asObj(sit.pitcher);
-  const batterAth = asObj(batter.athlete ?? batter);
-  const pitcherAth = asObj(pitcher.athlete ?? pitcher);
+  const batter = athleteBits(sit.batter);
+  const pitcher = athleteBits(sit.pitcher);
+  const onDeckRaw = asArr(sit.dueUp)[0] ?? sit.onDeck;
+  const onDeck = athleteBits(onDeckRaw);
   const base: Situation = {
-    lastPlay: str(last.text) || undefined,
+    lastPlay: str(last.text) || (typeof sit.lastPlay === "string" ? sit.lastPlay : "") || undefined,
     downDistanceText: str(sit.downDistanceText) || undefined,
     down: typeof sit.down === "number" ? sit.down : undefined,
     distance: typeof sit.distance === "number" ? sit.distance : undefined,
     possessionAbbr: str(asObj(sit.possession).abbreviation) || undefined,
-    batter: str(batterAth.shortName || batterAth.displayName) || undefined,
-    pitcher: str(pitcherAth.shortName || pitcherAth.displayName) || undefined,
+    batter: batter.name,
+    pitcher: pitcher.name,
+    batterId: batter.id,
+    pitcherId: pitcher.id,
+    batterHeadshot: batter.headshot,
+    pitcherHeadshot: pitcher.headshot,
+    batterLine: batter.line,
+    pitcherLine: pitcher.line,
+    batterPos: batter.pos,
+    pitcherHand: pitcher.throws,
+    batterHand: batter.bats,
+    batterTeamId: batter.teamId,
+    pitcherTeamId: pitcher.teamId,
+    onDeck: onDeck.name,
   };
   if (sport === "baseball" || sport === "softball") {
+    const first = runnerFrom(sit.onFirst);
+    const second = runnerFrom(sit.onSecond);
+    const third = runnerFrom(sit.onThird);
     base.balls = num(sit.balls);
     base.strikes = num(sit.strikes);
     base.outs = num(sit.outs);
     base.onFirst = Boolean(sit.onFirst);
     base.onSecond = Boolean(sit.onSecond);
     base.onThird = Boolean(sit.onThird);
+    base.runnerFirst = first;
+    base.runnerSecond = second;
+    base.runnerThird = third;
+    if (typeof sit.pitchCount === "number" && sit.pitchCount > 0) base.pitchCount = sit.pitchCount;
   }
   return base;
+}
+
+function athleteBits(raw: unknown) {
+  const o = asObj(raw);
+  const ath = asObj(o.athlete && typeof o.athlete === "object" ? o.athlete : o);
+  const head = ath.headshot;
+  const headshot =
+    typeof head === "string" && head
+      ? head
+      : str(asObj(head).href) || undefined;
+  const posRaw = ath.position;
+  const pos =
+    typeof posRaw === "string"
+      ? posRaw
+      : str(asObj(posRaw).abbreviation) || undefined;
+  const name = str(ath.shortName || ath.displayName || ath.fullName) || undefined;
+  const id = str(ath.id || o.playerId || o.id) || undefined;
+  return {
+    name,
+    id,
+    headshot,
+    pos,
+    line: str(o.summary) || undefined,
+    teamId: str(asObj(ath.team).id) || undefined,
+    throws: str(ath.throws) || undefined,
+    bats: str(ath.bats) || undefined,
+  };
+}
+
+function runnerFrom(raw: unknown): string | undefined {
+  if (!raw) return undefined;
+  if (typeof raw === "boolean") return undefined;
+  const o = asObj(raw);
+  const ath = asObj(o.athlete);
+  return str(ath.shortName || ath.displayName || o.playerId) || undefined;
 }
 
 function readStatus(comp: Json) {
@@ -476,6 +533,9 @@ function parsePlayers(boxscore: unknown): PlayerLine[] {
           teamAbbr: abbr || undefined,
           group: groupName,
           stats,
+          headshot:
+            (typeof athlete.headshot === "string" ? athlete.headshot : str(asObj(athlete.headshot).href)) ||
+            undefined,
         });
       }
     }
@@ -531,46 +591,231 @@ export function parseSummary(raw: unknown, league: LeagueDef, fallback?: Game): 
 
   const sitRaw = asObj(data.situation);
   if (Object.keys(sitRaw).length) {
-    const batter = asObj(sitRaw.batter);
-    const pitcher = asObj(sitRaw.pitcher);
-    const batterAth = asObj(batter.athlete ?? batter);
-    const pitcherAth = asObj(pitcher.athlete ?? pitcher);
-    game.situation = {
-      ...game.situation,
-      balls: num(sitRaw.balls),
-      strikes: num(sitRaw.strikes),
-      outs: num(sitRaw.outs),
-      onFirst: Boolean(sitRaw.onFirst),
-      onSecond: Boolean(sitRaw.onSecond),
-      onThird: Boolean(sitRaw.onThird),
-      lastPlay: str(asObj(sitRaw.lastPlay).text) || game.situation?.lastPlay,
-      batter: str(batterAth.shortName || batterAth.displayName) || game.situation?.batter,
-      pitcher: str(pitcherAth.shortName || pitcherAth.displayName) || game.situation?.pitcher,
-      downDistanceText: str(sitRaw.downDistanceText) || game.situation?.downDistanceText,
-      possessionAbbr: str(asObj(sitRaw.possession).abbreviation) || game.situation?.possessionAbbr,
-    };
+    const fromScoreboard = parseSituation({ situation: sitRaw }, league.sport);
+    game.situation = { ...game.situation, ...fromScoreboard };
   }
 
-  const plays = asArr(data.plays)
+  const athletes = indexAthletes(data.boxscore, data.rosters);
+  const sit = game.situation;
+  if (sit) {
+    const batter = sit.batterId ? athletes.get(sit.batterId) : undefined;
+    const pitcher = sit.pitcherId ? athletes.get(sit.pitcherId) : undefined;
+    if (batter) {
+      sit.batter = sit.batter || batter.shortName;
+      sit.batterHeadshot = sit.batterHeadshot || batter.headshot;
+      sit.batterLine = sit.batterLine || batter.batLine;
+      sit.batterPos = sit.batterPos || batter.pos;
+      sit.batterHand = sit.batterHand || batter.bats;
+    }
+    if (pitcher) {
+      sit.pitcher = sit.pitcher || pitcher.shortName;
+      sit.pitcherHeadshot = sit.pitcherHeadshot || pitcher.headshot;
+      sit.pitcherLine = sit.pitcherLine || pitcher.pitchLine;
+      sit.pitcherHand = sit.pitcherHand || pitcher.throws;
+      if (pitcher.pitchCount && !sit.pitchCount) sit.pitchCount = pitcher.pitchCount;
+    }
+    if (sit.runnerFirst && /^\d+$/.test(sit.runnerFirst)) {
+      sit.runnerFirst = athletes.get(sit.runnerFirst)?.shortName || sit.runnerFirst;
+    }
+    if (sit.runnerSecond && /^\d+$/.test(sit.runnerSecond)) {
+      sit.runnerSecond = athletes.get(sit.runnerSecond)?.shortName || sit.runnerSecond;
+    }
+    if (sit.runnerThird && /^\d+$/.test(sit.runnerThird)) {
+      sit.runnerThird = athletes.get(sit.runnerThird)?.shortName || sit.runnerThird;
+    }
+    if (!sit.onDeck) {
+      const due = asArr(asObj(data.situation).dueUp);
+      const next = athleteBits(due[0]);
+      if (next.name) sit.onDeck = next.name;
+    }
+  }
+
+  const plays: GamePlay[] = asArr(data.plays)
     .map((p) => {
       const o = asObj(p);
       const period = asObj(o.period);
+      const coord = asObj(o.coordinate ?? o.pitchCoordinate);
+      const team = asObj(o.team);
+      const homeId = game.home.id;
       return {
         id: str(o.id),
         text: str(o.text),
         period: str(period.displayValue || period.number),
         clock: str(o.clock ? asObj(o.clock).displayValue : ""),
+        x: typeof coord.x === "number" ? coord.x : undefined,
+        y: typeof coord.y === "number" ? coord.y : undefined,
+        shooting: Boolean(o.shootingPlay),
+        scoring: Boolean(o.scoringPlay),
+        home: team.id ? str(team.id) === homeId : undefined,
       };
     })
-    .filter((p) => p.text);
+    .filter((p) => p.text || p.x != null);
+
+  const pitches = parsePitches(asArr(data.plays));
+  const courtMarks = parseCourtMarks(plays, game.sport);
 
   return {
     ...game,
     plays,
+    pitches,
+    courtMarks,
     players: parsePlayers(data.boxscore),
     lastPlay: plays.length ? plays[plays.length - 1]?.text : game.lastPlay,
     notes: str(asObj(asArr(data.notes)[0]).headline) || undefined,
+    situation: sit,
   };
+}
+
+type AthleteInfo = {
+  shortName: string;
+  name: string;
+  headshot?: string;
+  pos?: string;
+  bats?: string;
+  throws?: string;
+  batLine?: string;
+  pitchLine?: string;
+  pitchCount?: number;
+};
+
+function indexAthletes(boxscore: unknown, rosters: unknown) {
+  const map = new Map<string, AthleteInfo>();
+  const put = (id: string, patch: Partial<AthleteInfo> & { shortName?: string; name?: string }) => {
+    if (!id) return;
+    const prev = map.get(id) ?? { shortName: patch.shortName || "", name: patch.name || "" };
+    map.set(id, { ...prev, ...patch, shortName: patch.shortName || prev.shortName, name: patch.name || prev.name });
+  };
+
+  for (const team of asArr(rosters)) {
+    const t = asObj(team);
+    for (const row of asArr(t.roster)) {
+      const r = asObj(row);
+      const ath = asObj(r.athlete);
+      const id = str(ath.id);
+      const stats = asArr(r.stats);
+      const hits = stats.find((s) => asObj(s).abbreviation === "H" || asObj(s).name === "hits");
+      const abs = stats.find((s) => asObj(s).abbreviation === "AB" || asObj(s).name === "atBats");
+      const batLine =
+        hits && abs ? `${asObj(hits).displayValue}-${asObj(abs).displayValue}` : undefined;
+      put(id, {
+        shortName: str(ath.shortName || ath.displayName),
+        name: str(ath.displayName || ath.fullName),
+        headshot: str(asObj(ath.headshot).href) || undefined,
+        pos: str(asObj(r.position).abbreviation) || undefined,
+        bats: str(ath.bats) || undefined,
+        throws: str(ath.throws) || undefined,
+        batLine,
+      });
+    }
+  }
+
+  for (const team of asArr(asObj(boxscore).players)) {
+    const t = asObj(team);
+    for (const group of asArr(t.statistics)) {
+      const g = asObj(group);
+      const keys = asArr(g.keys).map((k) => String(k));
+      const isPitch = str(g.name) === "pitching";
+      const isBat = str(g.name) === "batting";
+      for (const row of asArr(g.athletes)) {
+        const r = asObj(row);
+        const ath = asObj(r.athlete);
+        const id = str(ath.id);
+        const stats = asArr(r.stats).map((s) => String(s));
+        const pick = (name: string) => {
+          const i = keys.findIndex((k) => k === name || k.endsWith(name) || k.includes(name));
+          return i >= 0 ? stats[i] : undefined;
+        };
+        let pitchLine: string | undefined;
+        let batLine: string | undefined;
+        let pitchCount: number | undefined;
+        if (isPitch) {
+          const ip = pick("innings") || pick("IP") || pick("fullInnings.partInnings") || stats[0];
+          const h = pick("hits") || stats[1];
+          const er = pick("earnedRuns") || pick("earned") || stats[3];
+          const k = pick("strikeouts") || stats[5];
+          const bb = pick("walks") || stats[4];
+          pitchLine = [ip && `${ip} IP`, h && `${h}H`, er && `${er} ER`, k && `${k} K`, bb && `${bb} BB`]
+            .filter(Boolean)
+            .join(", ");
+          const pitchesRaw = pick("pitches") || pick("pitches-strikes");
+          if (pitchesRaw) {
+            const n = Number(String(pitchesRaw).split(/[-/]/)[0]);
+            if (Number.isFinite(n) && n > 0) pitchCount = n;
+          }
+        }
+        if (isBat) {
+          const hab = pick("hits-atBats") || (pick("hits") && pick("atBats") ? `${pick("hits")}-${pick("atBats")}` : undefined);
+          batLine = hab;
+        }
+        put(id, {
+          shortName: str(ath.shortName || ath.displayName),
+          name: str(ath.displayName),
+          headshot: (typeof ath.headshot === "string" ? ath.headshot : str(asObj(ath.headshot).href)) || undefined,
+          pos: str(asObj(ath.position).abbreviation) || undefined,
+          pitchLine,
+          batLine,
+          pitchCount,
+        });
+      }
+    }
+  }
+  return map;
+}
+
+function pitchOutcome(typeText: string, typeId: string): PitchOutcome {
+  const t = typeText.toLowerCase();
+  if (t.includes("foul")) return "foul";
+  if (t.includes("ball") && !t.includes("in play")) return "ball";
+  if (t.includes("in play") || t.includes("hit") || t.includes("out") || t.includes("single") || t.includes("double") || t.includes("triple") || t.includes("home"))
+    return "inplay";
+  if (t.includes("strike")) return "strike";
+  if (typeId === "22" || typeId === "23") return "inplay";
+  return "strike";
+}
+
+function parsePitches(rawPlays: unknown[]): Pitch[] {
+  const current: Pitch[] = [];
+  for (const p of rawPlays) {
+    const o = asObj(p);
+    const typ = asObj(o.type);
+    const kind = str(typ.type || typ.text);
+    if (/start[- ]batter/i.test(kind) || /start batter/i.test(str(typ.text))) {
+      current.length = 0;
+      continue;
+    }
+    const n = num(o.atBatPitchNumber, 0);
+    const coord = asObj(o.pitchCoordinate ?? o.coordinate);
+    const isRealPitch = Boolean(o.pitchType || o.pitchVelocity);
+    if (!isRealPitch || n <= 0) continue;
+    const result = str(typ.text);
+    current.push({
+      id: str(o.id),
+      n,
+      result,
+      type: str(asObj(o.pitchType).text) || undefined,
+      mph: typeof o.pitchVelocity === "number" ? o.pitchVelocity : undefined,
+      x: typeof coord.x === "number" ? coord.x : undefined,
+      y: typeof coord.y === "number" ? coord.y : undefined,
+      outcome: pitchOutcome(result, str(typ.id)),
+    });
+  }
+  return current.slice(-12);
+}
+
+function parseCourtMarks(plays: GamePlay[], sport: string) {
+  if (sport !== "basketball") return [];
+  return plays
+    .filter((p) => p.shooting && p.x != null && p.y != null)
+    .slice(-16)
+    .map((p) => ({
+      id: p.id,
+      x: p.x!,
+      y: p.y!,
+      made: Boolean(p.scoring),
+      home: p.home,
+      text: p.text,
+      scoring: p.scoring,
+    }));
 }
 
 export function parseStatNumber(raw: string | undefined, stat: string): number | null {

@@ -182,6 +182,10 @@ export function summaryUrl(league: LeagueDef, eventId: string) {
   return `https://site.web.api.espn.com/apis/site/v2/sports/${league.espnSport}/${league.espnLeague}/summary?event=${encodeURIComponent(eventId)}`;
 }
 
+export function playbyplayUrl(league: LeagueDef, eventId: string) {
+  return `https://site.web.api.espn.com/apis/site/v2/sports/${league.espnSport}/${league.espnLeague}/playbyplay?event=${encodeURIComponent(eventId)}`;
+}
+
 export function gamecastHref(league: LeagueDef, eventId: string) {
   if (league.sport === "soccer") return `https://www.espn.com/soccer/match/_/gameId/${eventId}`;
   if (league.sport === "mma") return `https://www.espn.com/mma/fightcenter/_/id/${eventId}/league/${league.espnLeague}`;

@@ -325,8 +325,10 @@ function u45Islam(): BetLeg {
 }
 
 /** Tonight's live card — upserted so the book matches the written tickets. */
-export function ensureTonightTickets() {
+export function ensureTonightTickets(games: Game[] = []) {
   const { tickets, addTicket, updateTicket } = useBook.getState();
+  const liveIds = new Set(games.filter((g) => g.state !== "post").map((g) => g.id));
+  if (!liveIds.has(UFC330.islam.eventId) && !liveIds.has(UFC330.dern.eventId)) return;
   const wanted: Array<Omit<Ticket, "createdAt" | "toWin"> & { id: string }> = [
     {
       id: "tix-ufc330-brewers-u45",

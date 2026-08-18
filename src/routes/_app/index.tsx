@@ -32,7 +32,13 @@ function SlatePage() {
       const fam = filter.slice("family:".length);
       list = games.filter((g) => leagueById(g.leagueId)?.family === fam);
     } else if (filter !== "all") list = games.filter((g) => g.leagueId === filter);
-    return list;
+    const seen = new Set<string>();
+    return list.filter((g) => {
+      const k = `${g.leagueId}-${g.id}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   }, [games, filter]);
 
   const live = visible.filter((g) => g.state === "in");
@@ -103,7 +109,7 @@ function SlatePage() {
           <h2 className="mb-3 text-2xs font-medium uppercase tracking-wide text-subtle">Live now</h2>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {live.map((g) => (
-              <GameCard key={g.id} game={g} />
+              <GameCard key={`${g.leagueId}-${g.id}`} game={g} />
             ))}
           </div>
         </section>
@@ -114,7 +120,7 @@ function SlatePage() {
           <h2 className="mb-3 text-2xs font-medium uppercase tracking-wide text-subtle">Upcoming</h2>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {upcoming.map((g) => (
-              <GameCard key={g.id} game={g} />
+              <GameCard key={`${g.leagueId}-${g.id}`} game={g} />
             ))}
           </div>
         </section>
@@ -125,7 +131,7 @@ function SlatePage() {
           <h2 className="mb-3 text-2xs font-medium uppercase tracking-wide text-subtle">Final</h2>
           <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
             {final.map((g) => (
-              <MiniGame key={g.id} game={g} />
+              <MiniGame key={`${g.leagueId}-${g.id}`} game={g} />
             ))}
           </div>
         </section>

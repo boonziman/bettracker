@@ -9,10 +9,11 @@ export function useSlate(leagueIds: string[]) {
     queryFn: () => loadSlateClient(leagueIds),
     refetchInterval: (q) => {
       const games = q.state.data;
-      if (!games?.length) return 15000;
-      return games.some((g) => g.state === "in") ? 4000 : 20000;
+      if (!games?.length) return 4000;
+      return games.some((g) => g.state === "in") ? 1200 : 12000;
     },
-    staleTime: 2000,
+    staleTime: 250,
+    retry: 1,
     placeholderData: keepPreviousData,
   });
 }
@@ -24,9 +25,10 @@ export function useGameDetail(leagueId?: string, eventId?: string, fallback?: Ga
     enabled: Boolean(leagueId && eventId),
     refetchInterval: (q) => {
       const g = q.state.data ?? fallback;
-      return g?.state === "in" ? 2500 : 20000;
+      return g?.state === "in" ? 600 : 12000;
     },
-    staleTime: 1200,
+    staleTime: 200,
+    retry: 1,
     placeholderData: keepPreviousData,
   });
 }
@@ -54,8 +56,9 @@ export function useTicketDetails(games: Game[], events: Array<string | TicketEve
         queryKey: ["game", leagueId || "?", ref.eventId],
         queryFn: () => loadGameDetailClient(leagueId, ref.eventId, g),
         enabled: Boolean(leagueId),
-        refetchInterval: g?.state === "in" ? 2500 : g?.state === "post" ? 25000 : 8000,
-        staleTime: 1200,
+        refetchInterval: g?.state === "in" ? 600 : g?.state === "post" ? 20000 : 4000,
+        staleTime: 200,
+        retry: 1,
         placeholderData: keepPreviousData,
       };
     }),

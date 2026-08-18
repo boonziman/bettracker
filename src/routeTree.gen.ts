@@ -11,9 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppBookRouteImport } from './routes/_app/book'
+import { Route as AppDeskRouteImport } from './routes/_app/desk'
 import { Route as AppHistoryRouteImport } from './routes/_app/history'
+import { Route as SShareIdRouteImport } from './routes/s.$shareId'
 import { Route as AppBookTicketIdRouteImport } from './routes/_app/book.$ticketId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiEspnGameRouteImport } from './routes/api/espn/game'
@@ -29,6 +32,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -39,10 +47,20 @@ const AppBookRoute = AppBookRouteImport.update({
   path: '/book',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDeskRoute = AppDeskRouteImport.update({
+  id: '/desk',
+  path: '/desk',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHistoryRoute = AppHistoryRouteImport.update({
   id: '/history',
   path: '/history',
   getParentRoute: () => AppRoute,
+} as any)
+const SShareIdRoute = SShareIdRouteImport.update({
+  id: '/s/$shareId',
+  path: '/s/$shareId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppBookTicketIdRoute = AppBookTicketIdRouteImport.update({
   id: '/$ticketId',
@@ -73,8 +91,11 @@ const AppWatchLeagueIdEventIdRoute = AppWatchLeagueIdEventIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/book': typeof AppBookRouteWithChildren
+  '/desk': typeof AppDeskRoute
   '/history': typeof AppHistoryRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/book/$ticketId': typeof AppBookTicketIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/espn/game': typeof ApiEspnGameRoute
@@ -83,8 +104,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/book': typeof AppBookRouteWithChildren
+  '/desk': typeof AppDeskRoute
   '/history': typeof AppHistoryRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/': typeof AppIndexRoute
   '/book/$ticketId': typeof AppBookTicketIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -96,8 +120,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/_app/book': typeof AppBookRouteWithChildren
+  '/_app/desk': typeof AppDeskRoute
   '/_app/history': typeof AppHistoryRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/_app/': typeof AppIndexRoute
   '/_app/book/$ticketId': typeof AppBookTicketIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -110,8 +137,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/signup'
     | '/book'
+    | '/desk'
     | '/history'
+    | '/s/$shareId'
     | '/book/$ticketId'
     | '/api/auth/$'
     | '/api/espn/game'
@@ -120,8 +150,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/signup'
     | '/book'
+    | '/desk'
     | '/history'
+    | '/s/$shareId'
     | '/'
     | '/book/$ticketId'
     | '/api/auth/$'
@@ -132,8 +165,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/login'
+    | '/signup'
     | '/_app/book'
+    | '/_app/desk'
     | '/_app/history'
+    | '/s/$shareId'
     | '/_app/'
     | '/_app/book/$ticketId'
     | '/api/auth/$'
@@ -145,6 +181,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
+  SShareIdRoute: typeof SShareIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiEspnGameRoute: typeof ApiEspnGameRoute
   ApiEspnSlateRoute: typeof ApiEspnSlateRoute
@@ -166,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/': {
       id: '/_app/'
       path: '/'
@@ -180,12 +225,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBookRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/desk': {
+      id: '/_app/desk'
+      path: '/desk'
+      fullPath: '/desk'
+      preLoaderRoute: typeof AppDeskRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/history': {
       id: '/_app/history'
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof AppHistoryRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/s/$shareId': {
+      id: '/s/$shareId'
+      path: '/s/$shareId'
+      fullPath: '/s/$shareId'
+      preLoaderRoute: typeof SShareIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/book/$ticketId': {
       id: '/_app/book/$ticketId'
@@ -238,6 +297,7 @@ const AppBookRouteWithChildren =
 
 interface AppRouteChildren {
   AppBookRoute: typeof AppBookRouteWithChildren
+  AppDeskRoute: typeof AppDeskRoute
   AppHistoryRoute: typeof AppHistoryRoute
   AppIndexRoute: typeof AppIndexRoute
   AppWatchLeagueIdEventIdRoute: typeof AppWatchLeagueIdEventIdRoute
@@ -245,6 +305,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppBookRoute: AppBookRouteWithChildren,
+  AppDeskRoute: AppDeskRoute,
   AppHistoryRoute: AppHistoryRoute,
   AppIndexRoute: AppIndexRoute,
   AppWatchLeagueIdEventIdRoute: AppWatchLeagueIdEventIdRoute,
@@ -255,6 +316,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
+  SShareIdRoute: SShareIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiEspnGameRoute: ApiEspnGameRoute,
   ApiEspnSlateRoute: ApiEspnSlateRoute,

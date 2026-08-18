@@ -11,7 +11,7 @@
     "build": "vite build && npm run db:migrate",
     "db:migrate": "node scripts/migrate.mjs",
     "build:dev": "vite build --mode development",
-    "build:pages": "GITHUB_PAGES=1 VITE_SPA=1 VITE_AUTH_ENABLED=false VITE_PAGES_ORIGIN=https://boonziman.github.io/bettracker vite build && node scripts/pages-fallback.mjs",
+    "build:pages": "GITHUB_PAGES=1 VITE_SPA=1 VITE_PAGES_ORIGIN=https://boonziman.github.io/bettracker vite build && node scripts/pages-fallback.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 8080",
     "typecheck": "tsc --noEmit",
     "test": "node --test 'scripts/**/*.test.mjs'",

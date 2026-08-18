@@ -1,8 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { Check, Trash2 } from "lucide-react";
+import { Check, Share2, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { GamecastBoard, StatBar } from "@/components/gamecast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useAccount } from "@/lib/accounts/session";
+import { createShareLink } from "@/lib/bets/share-link";
 import { evaluateTicket, trackingLabel } from "@/lib/bets/evaluate";
 import { statusLabel, statusTone } from "@/lib/bets/status";
 import { useBook } from "@/lib/bets/store";
@@ -10,30 +13,56 @@ import type { Ticket } from "@/lib/bets/types";
 import { eventLabel } from "@/lib/espn/leagues";
 import type { Game, GameDetail } from "@/lib/espn/types";
 import { cn, formatAmerican, formatMoney } from "@/lib/utils";
+import { toast } from "sonner";
 
 export function TicketDesk({
   ticket,
   games,
   details,
   size = "page",
+  readOnly = false,
   onRemoved,
 }: {
   ticket: Ticket;
   games: Map<string, Game>;
   details: Map<string, GameDetail | null>;
   size?: "page" | "card";
+  readOnly?: boolean;
   onRemoved?: () => void;
 }) {
   const { toggleLeg, removeTicket } = useBook();
+  const { username } = useAccount();
   const ev = evaluateTicket(ticket, games, details);
   const groups = groupLegs(ticket, games, details);
+  const [sharing, setSharing] = useState(false);
+
+  const share = async () => {
+    setSharing(true);
+    try {
+      const url = await createShareLink(ticket, username || "guest");
+      const text = `${ticket.label} · ${ev.hits}/${ticket.legs.length} covering`;
+      if (navigator.share) {
+        await navigator.share({ title: ticket.label, text, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied — send it in a text");
+      }
+    } catch (err) {
+      if (err instanceof Error && /Abort|cancel/i.test(err.message)) return;
+      toast.error("Could not build the share link");
+    } finally {
+      setSharing(false);
+    }
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            {size === "page" ? (
+            {size === "page" && !readOnly ? (
+              <h1 className="type-display text-3xl italic">{ticket.label}</h1>
+            ) : size === "page" ? (
               <h1 className="type-display text-3xl italic">{ticket.label}</h1>
             ) : (
               <Link
@@ -52,18 +81,24 @@ export function TicketDesk({
             {ticket.legs.length} covering
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-xl font-medium tabular">
-            {formatMoney(ticket.stake)} → {formatMoney(ticket.stake + ticket.toWin)}
-          </p>
-          <p className="text-xs tabular text-subtle">{formatAmerican(ticket.odds)}</p>
+        <div className="flex items-end gap-3">
+          <div className="text-right">
+            <p className="text-xl font-medium tabular">
+              {formatMoney(ticket.stake)} → {formatMoney(ticket.stake + ticket.toWin)}
+            </p>
+            <p className="text-xs tabular text-subtle">{formatAmerican(ticket.odds)}</p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => void share()} disabled={sharing}>
+            <Share2 className="size-3.5" />
+            Share
+          </Button>
         </div>
       </header>
 
       {groups.map(({ eventId, game, detail, legs }) => (
         <div key={eventId} className="space-y-2">
           {game ? (
-            <GamecastBoard game={detail ?? game} legs={legs} compact={size === "card"} />
+            <GamecastBoard game={detail ?? game} legs={legs} compact />
           ) : (
             <p className="rounded-xl bg-surface px-4 py-6 text-sm text-muted shadow-[var(--shadow-border)]">
               Game not on today's slate yet.
@@ -75,19 +110,30 @@ export function TicketDesk({
               const evaled = ev.legs[ticket.legs.indexOf(leg)]!;
               return (
                 <li key={leg.id} className="flex items-start gap-3 border-t border-line px-4 py-3 first:border-t-0">
-                  <button
-                    type="button"
-                    onClick={() => toggleLeg(ticket.id, leg.id)}
-                    aria-pressed={leg.checked}
-                    className={cn(
-                      "mt-0.5 grid size-6 shrink-0 place-items-center rounded-xs border transition-colors",
-                      leg.checked || evaled.status === "won"
-                        ? "border-win bg-win text-accent-fg"
-                        : "border-line-strong text-transparent",
-                    )}
-                  >
-                    <Check className="size-3.5" strokeWidth={3} />
-                  </button>
+                  {readOnly ? (
+                    <span
+                      className={cn(
+                        "mt-0.5 grid size-6 shrink-0 place-items-center rounded-xs border",
+                        evaled.status === "won" ? "border-win bg-win text-accent-fg" : "border-line-strong text-transparent",
+                      )}
+                    >
+                      <Check className="size-3.5" strokeWidth={3} />
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => toggleLeg(ticket.id, leg.id)}
+                      aria-pressed={leg.checked}
+                      className={cn(
+                        "mt-0.5 grid size-6 shrink-0 place-items-center rounded-xs border transition-colors",
+                        leg.checked || evaled.status === "won"
+                          ? "border-win bg-win text-accent-fg"
+                          : "border-line-strong text-transparent",
+                      )}
+                    >
+                      <Check className="size-3.5" strokeWidth={3} />
+                    </button>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className={cn("text-sm", (leg.checked || evaled.status === "won") && "text-win")}>
@@ -116,20 +162,22 @@ export function TicketDesk({
         </div>
       ))}
 
-      <div className="flex justify-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-subtle hover:text-lose"
-          onClick={() => {
-            removeTicket(ticket.id);
-            onRemoved?.();
-          }}
-        >
-          <Trash2 className="size-3.5" />
-          Remove ticket
-        </Button>
-      </div>
+      {readOnly ? null : (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-subtle hover:text-lose"
+            onClick={() => {
+              removeTicket(ticket.id);
+              onRemoved?.();
+            }}
+          >
+            <Trash2 className="size-3.5" />
+            Remove ticket
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

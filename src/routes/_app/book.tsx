@@ -61,7 +61,7 @@ function BookPage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-10">
+        <div className="space-y-5">
           {open.map((t) => (
             <TicketDesk key={t.id} ticket={t} games={gameMap} details={details} size="card" />
           ))}
@@ -71,7 +71,7 @@ function BookPage() {
       {closed.length > 0 ? (
         <section className="mt-10">
           <h2 className="mb-3 text-2xs font-medium uppercase tracking-wide text-subtle">Recently settled</h2>
-          <div className="space-y-10">
+          <div className="space-y-5">
             {closed.slice(0, 6).map((t) => (
               <TicketDesk key={t.id} ticket={t} games={gameMap} details={details} size="card" />
             ))}

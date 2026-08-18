@@ -1,17 +1,17 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { signInUsername } from "@/lib/accounts/actions";
+import { signUpUsername } from "@/lib/accounts/actions";
 import { ensureLocalMaster } from "@/lib/accounts/vault";
 import { useAccount } from "@/lib/accounts/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export const Route = createFileRoute("/login")({
-  component: Login,
+export const Route = createFileRoute("/signup")({
+  component: Signup,
 });
 
-function Login() {
+function Signup() {
   const navigate = useNavigate();
   const { user, isPending } = useAccount();
   const [username, setUsername] = useState("");
@@ -21,22 +21,7 @@ function Login() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    let alive = true;
-    void (async () => {
-      await ensureLocalMaster();
-      if (import.meta.env.VITE_SPA !== "1") {
-        try {
-          const { ensureMasterAccount } = await import("@/lib/bets/desk");
-          await ensureMasterAccount();
-        } catch {
-          /* vault still works */
-        }
-      }
-      if (alive) setReady(true);
-    })();
-    return () => {
-      alive = false;
-    };
+    void ensureLocalMaster().finally(() => setReady(true));
   }, []);
 
   useEffect(() => {
@@ -48,10 +33,10 @@ function Login() {
     setError("");
     setBusy(true);
     try {
-      await signInUsername(username, password);
+      await signUpUsername(username, password);
       await navigate({ to: "/" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign in");
+      setError(err instanceof Error ? err.message : "Could not create the account");
     } finally {
       setBusy(false);
     }
@@ -63,8 +48,8 @@ function Login() {
         <Link to="/" className="type-display text-3xl italic">
           Slate
         </Link>
-        <h1 className="mt-4 text-lg font-medium">Sign in</h1>
-        <p className="mt-1 text-sm text-muted">Same desk, same book. Username and password only.</p>
+        <h1 className="mt-4 text-lg font-medium">Create an account</h1>
+        <p className="mt-1 text-sm text-muted">Username and password. Your book stays on this desk.</p>
 
         <form className="mt-6 space-y-3" onSubmit={(e) => void submit(e)}>
           <div>
@@ -84,21 +69,21 @@ function Login() {
               id="pass"
               className="mt-1.5"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
           {error ? <p className="text-sm text-lose">{error}</p> : null}
           <Button className="w-full" type="submit" disabled={busy || !ready}>
-            {busy ? "Working…" : !ready ? "Preparing…" : "Sign in"}
+            {busy ? "Working…" : "Sign up"}
           </Button>
         </form>
 
         <p className="mt-4 text-sm text-muted">
-          New here?{" "}
-          <Link to="/signup" className="text-fg hover:underline">
-            Sign up
+          Already have one?{" "}
+          <Link to="/login" className="text-fg hover:underline">
+            Sign in
           </Link>
         </p>
         <Link to="/" className="mt-6 block text-sm text-subtle hover:text-fg">

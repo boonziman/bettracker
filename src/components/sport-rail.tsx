@@ -61,6 +61,7 @@ export function SportRail({
               active={filter === l.id}
               dim={!on || n === 0}
               onClick={() => {
+                if (!on) onToggle(l.id);
                 if (filter === l.id) onFilter("all");
                 else onFilter(l.id);
               }}
