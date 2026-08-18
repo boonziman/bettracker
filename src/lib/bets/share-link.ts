@@ -14,7 +14,7 @@ export async function createShareLink(ticket: Ticket, owner: string) {
   const payload = encodeSharePayload(slip);
   if (import.meta.env.VITE_SPA !== "1") {
     try {
-      const { publishShare } = await import("./share");
+      const { publishShare } = await import("./share-server");
       const published = await publishShare({ data: slip });
       slip.id = published.id;
     } catch {

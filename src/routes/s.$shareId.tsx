@@ -2,7 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { TicketDesk } from "@/components/ticket-desk";
 import { readVaultShare } from "@/lib/accounts/vault";
-import { decodeSharePayload, previewCopy, readShare, type SharedSlip } from "@/lib/bets/share";
+import { decodeSharePayload, previewCopy, type SharedSlip } from "@/lib/bets/share";
 import { useSlate, useTicketDetails } from "@/lib/espn/hooks";
 import type { Game } from "@/lib/espn/types";
 
@@ -16,6 +16,7 @@ export const Route = createFileRoute("/s/$shareId")({
     let slip: SharedSlip | null = null;
     if (import.meta.env.VITE_SPA !== "1") {
       try {
+        const { readShare } = await import("@/lib/bets/share-server");
         slip = await readShare({ data: params.shareId });
       } catch {
         slip = null;

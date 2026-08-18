@@ -41,11 +41,12 @@ export function useAccount(): CurrentUserState & { username: string; isMaster: b
   const local = useSyncExternalStore(subscribe, snapshot, () => null);
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
-  const user = remote.user ?? (ready ? local : null);
+  const spa = import.meta.env.VITE_SPA === "1";
+  const user = spa ? (ready ? local : null) : remote.user?.isDevFallback ? local : remote.user ?? (ready ? local : null);
   const username = emailToUsername(user?.primaryEmail, user?.displayName);
   return {
     user,
-    isPending: !ready || (remote.isPending && !local),
+    isPending: spa ? !ready : !ready || (remote.isPending && !local),
     username,
     isMaster: isMasterName(username, user?.primaryEmail),
   };

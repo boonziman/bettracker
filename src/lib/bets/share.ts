@@ -1,11 +1,9 @@
-import { createServerFn } from "@tanstack/react-start";
 import { evaluateTicket } from "@/lib/bets/evaluate";
 import { statusLabel } from "@/lib/bets/status";
 import type { Ticket } from "@/lib/bets/types";
 import { loadGameDetail, loadLeagueScoreboard } from "@/lib/espn/api";
 import { leagueById } from "@/lib/espn/leagues";
 import type { Game, GameDetail } from "@/lib/espn/types";
-import { uid } from "@/lib/utils";
 
 export type SharedSlip = {
   id: string;
@@ -39,32 +37,6 @@ export function decodeSharePayload(raw: string): SharedSlip | null {
 export function sharePath(id: string, payload?: string) {
   return payload ? `/s/${id}?p=${payload}` : `/s/${id}`;
 }
-
-export const publishShare = createServerFn({ method: "POST" })
-  .validator((data: SharedSlip) => data)
-  .handler(async ({ data }) => {
-    const sql = await (await import("@/lib/db")).getSql();
-    const id = data.id || uid("s");
-    await sql.query(
-      `insert into shares (id, user_id, username, payload) values ($1, $2, $3, $4::jsonb)
-       on conflict (id) do update set payload = excluded.payload, username = excluded.username`,
-      [id, "share", data.owner || "guest", JSON.stringify({ ...data, id })],
-    );
-    return { id };
-  });
-
-export const readShare = createServerFn({ method: "GET" })
-  .validator((id: string) => id)
-  .handler(async ({ data: id }) => {
-    const sql = await (await import("@/lib/db")).getSql();
-    const rows = await sql.query<{ payload: SharedSlip | string }>(
-      "select payload from shares where id = $1",
-      [id],
-    );
-    if (!rows[0]) return null;
-    const payload = typeof rows[0].payload === "string" ? JSON.parse(rows[0].payload) : rows[0].payload;
-    return payload as SharedSlip;
-  });
 
 export async function previewCopy(ticket: Ticket) {
   const unique = [...new Map(ticket.legs.map((l) => [l.eventId, l])).values()];

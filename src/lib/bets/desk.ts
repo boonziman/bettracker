@@ -8,6 +8,9 @@ import {
   usernameToEmail,
 } from "@/lib/accounts/identity";
 import type { Ticket } from "./types";
+import type { BugRow, DeskTicket, DeskUser } from "./desk-types";
+
+export type { BugRow, DeskTicket, DeskUser } from "./desk-types";
 
 const MASTER_EMAIL = usernameToEmail(MASTER_USERNAME);
 
@@ -43,21 +46,6 @@ export const ensureMasterAccount = createServerFn({ method: "POST" }).handler(as
     throw err instanceof Error ? err : new Error(msg);
   }
 });
-
-export type DeskUser = {
-  id: string;
-  username: string;
-  email: string;
-  createdAt: string;
-  ticketCount: number;
-  stake: number;
-};
-
-export type DeskTicket = {
-  userId: string;
-  username: string;
-  ticket: Ticket;
-};
 
 export const listDesk = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
@@ -95,16 +83,6 @@ export const listDesk = createServerFn({ method: "GET" })
     });
     return { users: deskUsers, tickets };
   });
-
-export type BugRow = {
-  id: string;
-  userId: string;
-  username: string;
-  title: string;
-  body: string;
-  path: string | null;
-  createdAt: string;
-};
 
 export const submitBug = createServerFn({ method: "POST" })
   .validator((data: { title: string; body: string; path?: string; username?: string }) => ({

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useAccount } from "@/lib/accounts/session";
 import { listVaultBugs, listVaultUsers } from "@/lib/accounts/vault";
 import { RedirectToSignIn } from "@/lib/auth/gates";
-import type { BugRow, DeskTicket, DeskUser } from "@/lib/bets/desk";
+import type { BugRow, DeskTicket, DeskUser } from "@/lib/bets/desk-types";
 import { formatMoney } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/desk")({
